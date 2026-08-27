@@ -348,14 +348,6 @@ body {
   line-height: 1.2;
 }
 
-.preset-io {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-top: 12px;
-}
-
 .hint {
   font-size: 12px;
   color: #9a8b91;
