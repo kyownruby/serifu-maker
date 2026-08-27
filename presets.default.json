@@ -1,9 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "presets": [
     {
       "id": "preset1",
       "name": "キャラ1",
+      "aliases": [],
       "icon": "",
       "bubbleBg": "#FFF0F3",
       "bubbleBorder": "#E8899F",
@@ -14,6 +15,7 @@
     {
       "id": "preset2",
       "name": "キャラ2",
+      "aliases": [],
       "icon": "",
       "bubbleBg": "#FFF9E0",
       "bubbleBorder": "#F0CE5A",
@@ -24,6 +26,7 @@
     {
       "id": "preset3",
       "name": "キャラ3",
+      "aliases": [],
       "icon": "",
       "bubbleBg": "#F2EEFA",
       "bubbleBorder": "#9B87C4",
@@ -34,6 +37,7 @@
     {
       "id": "preset4",
       "name": "キャラ4",
+      "aliases": [],
       "icon": "",
       "bubbleBg": "#EEF5F2",
       "bubbleBorder": "#84AFA0",
