@@ -453,7 +453,8 @@ body {
 
 .canvas {
   /* width はJSで設定（620/700/800px）。height は auto */
-  padding: 16px;
+  /* 上下は0：noteに貼るとき上下の余白が邪魔になるため。左右は残す */
+  padding: 0 16px;
   line-height: 1.7;
 }
 
