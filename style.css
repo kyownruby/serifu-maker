@@ -551,13 +551,15 @@ body {
   border-color: transparent var(--bubble-border) transparent transparent;
 }
 
+/* 内側（背景色）：border-width は小数が整数に丸められるため、
+   枠線が吹き出し本体の2pxと同じ太さに見える整数値を実測で選んでいる */
 .line--left .bubble::after {
   content: "";
   position: absolute;
-  top: 15px;
-  left: -6px;
+  top: 16px;
+  left: -5px;
   border-style: solid;
-  border-width: 6px 7px 6px 0;
+  border-width: 5px 6px 5px 0;
   border-color: transparent var(--bubble-bg) transparent transparent;
 }
 
@@ -574,10 +576,10 @@ body {
 .line--right .bubble::after {
   content: "";
   position: absolute;
-  top: 15px;
-  right: -6px;
+  top: 16px;
+  right: -5px;
   border-style: solid;
-  border-width: 6px 0 6px 7px;
+  border-width: 5px 0 5px 6px;
   border-color: transparent transparent transparent var(--bubble-bg);
 }
 
