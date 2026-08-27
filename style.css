@@ -629,18 +629,10 @@ body {
   color: #6d5f66;
 }
 
-.output-area {
-  max-height: 460px;
-  overflow-y: auto;
-  border: 1px solid #d9c9cf;
-  border-radius: 8px;
-  padding: 10px;
-  background: #fff;
-}
-
+/* 出力エリアは枠もスクロールも付けない。画像はページの流れの中にそのまま並べる */
 .output-item + .output-item {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px dashed #e0d3d8;
 }
 
