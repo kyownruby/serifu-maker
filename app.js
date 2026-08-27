@@ -152,6 +152,21 @@
     statusEl.textContent = msg || "";
   }
 
+  function timestamp() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  }
+
+  function downloadUrl(url, filename) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   // ==========================================================
   // 書き出し対象（.canvas）の描画
   // プレビューに表示している要素をそのまま書き出す
@@ -914,46 +929,17 @@
 
   // 出力した画像は blob: URL で表示する。
   // data: URL だと右クリック→「画像をコピー」でnoteに貼れないため
-  // 表示は blob:（右クリック →「画像をコピー」が確実に動く）
-  // コピー時は data: に差し替える（blob: は他サイトから解決できないため）
+  // 出力画像は blob: URL で持つ
+  // （data: URL だと右クリック →「画像をコピー」で貼り付け先に渡せないため）
   let outputUrls = [];
-  const outputDataUrls = new Map(); // blob: URL → data: URL
 
   function clearOutput() {
     for (const u of outputUrls) URL.revokeObjectURL(u);
     outputUrls = [];
-    outputDataUrls.clear();
     const area = $("#outputArea");
     if (area) area.textContent = "";
     const box = $("#outputBox");
     if (box) box.hidden = true;
-  }
-
-  function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(fr.result);
-      fr.onerror = reject;
-      fr.readAsDataURL(blob);
-    });
-  }
-
-  // 出力エリアのコピーを横取りして、data: URL 版のHTMLをクリップボードに載せる
-  function onOutputCopy(e) {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
-    const imgs = sel.getRangeAt(0).cloneContents().querySelectorAll("img");
-    if (imgs.length === 0) return; // 画像を含まない選択は既定の動作にまかせる
-    const html = [...imgs]
-      .map((img) => outputDataUrls.get(img.src))
-      .filter(Boolean)
-      .map((dataUrl) => `<img src="${dataUrl}">`)
-      .join("<br>");
-    if (!html) return;
-    e.clipboardData.setData("text/html", html);
-    e.clipboardData.setData("text/plain", "");
-    e.preventDefault();
-    setStatus(`✅ ${imgs.length}枚をコピーしました。貼り付け先に貼ってください`);
   }
 
   // 1グループぶんを画面外でレンダリングして画像にする
@@ -975,6 +961,65 @@
     }
   }
 
+  // 出力エリアの1件ぶん（見出し＋画像＋コピーボタン）
+  function buildOutputItem(url, index, total) {
+    const item = document.createElement("div");
+    item.className = "output-item";
+
+    const head = document.createElement("div");
+    head.className = "output-item__head";
+
+    const label = document.createElement("span");
+    label.className = "output-item__label";
+    label.textContent = total > 1 ? `${index + 1}枚目` : "画像";
+    head.appendChild(label);
+
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "btn";
+    copyBtn.textContent = "コピー";
+    copyBtn.addEventListener("click", () => copyOneImage(url, index));
+    head.appendChild(copyBtn);
+
+    const img = document.createElement("img");
+    img.className = "output-item__img";
+    img.src = url;
+    img.alt = `${index + 1}枚目のセリフ画像`;
+
+    item.appendChild(head);
+    item.appendChild(img);
+    return item;
+  }
+
+  // 1枚だけクリップボードにコピーする（貼り付け先が確実に受け取れる形）
+  async function copyOneImage(url, index) {
+    try {
+      const blob = await fetch(url).then((r) => r.blob());
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setStatus(`✅ ${index + 1}枚目をコピーしました。貼り付け先で Ctrl+V してください`);
+    } catch (e) {
+      console.error(e);
+      setStatus("⚠️ コピーできませんでした。画像を右クリック →「画像をコピー」を使ってください");
+    }
+  }
+
+  // すべてPNGファイルとして保存する。
+  // まとめて貼りたいときは、保存したファイルを選んで貼り付け先へドラッグ&ドロップする
+  async function saveAllImages() {
+    if (outputUrls.length === 0) return;
+    setStatus("保存中…");
+    const stamp = timestamp();
+    for (let i = 0; i < outputUrls.length; i++) {
+      const name =
+        outputUrls.length === 1 ? `serifu_${stamp}.png` : `serifu_${stamp}_${String(i + 1).padStart(2, "0")}.png`;
+      downloadUrl(outputUrls[i], name);
+      // 連続ダウンロードがブロックされないよう少し間を空ける
+      await new Promise((r) => setTimeout(r, 300));
+      setStatus(`保存中… (${i + 1}/${outputUrls.length})`);
+    }
+    setStatus(`✅ ${outputUrls.length}枚を保存しました`);
+  }
+
   async function onOutput() {
     const groups = groupedLines().filter((lines) => lines.some((l) => (l.text || "").length > 0));
     if (groups.length === 0) {
@@ -990,23 +1035,16 @@
         if (!blob) throw new Error("画像の生成に失敗しました");
         const url = URL.createObjectURL(blob);
         outputUrls.push(url);
-        outputDataUrls.set(url, await blobToDataUrl(blob));
 
-        const img = document.createElement("img");
-        img.className = "output-area__img";
-        img.src = url;
-        img.alt = `${i + 1}枚目`;
-        area.appendChild(img);
-        // 画像どうしを別々の段落にしておく（貼り付け先で1枚ずつに分かれるように）
-        area.appendChild(document.createElement("br"));
-
+        area.appendChild(buildOutputItem(url, i, groups.length));
         setStatus(`出力中… (${i + 1}/${groups.length})`);
       }
       $("#outputBox").hidden = false;
       $("#outputCount").textContent = `${groups.length}枚`;
-      $("#selectAllBtn").hidden = groups.length <= 1;
+      $("#saveAllBtn").hidden = false;
+      $("#multiHint").hidden = groups.length <= 1;
 
-      // 1枚だけならクリップボードにも入れておく（確実に貼れる経路）
+      // 1枚だけならクリップボードにも入れておく（そのまま貼り付けられる）
       if (groups.length === 1) {
         try {
           const blob = await fetch(outputUrls[0]).then((r) => r.blob());
@@ -1014,28 +1052,15 @@
           setStatus("✅ 出力しました（クリップボードにもコピー済み）");
         } catch (e) {
           console.error(e);
-          setStatus("✅ 出力しました（自動コピーは失敗。画像を右クリック →「画像をコピー」を使ってください）");
+          setStatus("✅ 出力しました（自動コピーは失敗。「コピー」ボタンを押してください）");
         }
       } else {
-        setStatus(`✅ ${groups.length}枚を出力しました。「全部選択」→ Ctrl+C でまとめてコピーできます`);
+        setStatus(`✅ ${groups.length}枚を出力しました`);
       }
     } catch (e) {
       console.error(e);
       setStatus("⚠️ 出力に失敗しました。ページを再読み込みして試してください");
     }
-  }
-
-  // 出力エリアの中身をすべて選択する（このあと Ctrl+C でまとめてコピーできる）
-  function selectAllOutput() {
-    const area = $("#outputArea");
-    if (!area || outputUrls.length === 0) return;
-    area.focus();
-    const range = document.createRange();
-    range.selectNodeContents(area);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    setStatus("✅ 全部選択しました。Ctrl+C（Macは ⌘+C）でコピーしてください");
   }
 
   // ==========================================================
@@ -1124,8 +1149,7 @@
     }
     $("#addPresetBtn").addEventListener("click", addPreset);
     $("#outputBtn").addEventListener("click", onOutput);
-    $("#selectAllBtn").addEventListener("click", selectAllOutput);
-    $("#outputArea").addEventListener("copy", onOutputCopy);
+    $("#saveAllBtn").addEventListener("click", saveAllImages);
 
     update();
     waitFonts().then(() => renderCanvas());
