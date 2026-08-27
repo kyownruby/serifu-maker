@@ -26,7 +26,10 @@
 
       <h2 class="panel__title">セリフ</h2>
       <div id="lineList" class="line-list"></div>
-      <button id="addLineBtn" class="btn btn--wide" type="button">＋ 行を追加</button>
+      <div class="line-actions">
+        <button id="addLineBtn" class="btn" type="button">＋ 行を追加</button>
+        <button id="bulkPasteBtn" class="btn" type="button">まとめて貼り付け</button>
+      </div>
 
       <h2 class="panel__title">表示オプション</h2>
       <div class="options">
@@ -99,6 +102,40 @@
     </section>
   </main>
 
+  <!-- ========== まとめて貼り付け モーダル ========== -->
+  <div id="bulkModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="bulkTitle">
+      <h2 id="bulkTitle" class="modal__title">まとめて貼り付け</h2>
+      <p class="hint">
+        <code>ミア：「こんにちは」</code> のような台本を貼り付けると、会話の行がまとめて作られます。<br>
+        行頭の絵文字と「」は自動で取り除かれます。キャラ名は、プリセットの名前か別名と照合します。
+      </p>
+
+      <textarea id="bulkInput" class="modal__input" rows="8" placeholder="🐈ミア：「こんにちはっ！」&#10;☔レイン：「うるさいわね」&#10;📖しおり：「あの……こんにちは」"></textarea>
+
+      <div class="modal__previewHead">
+        <h3 class="modal__subtitle">取り込みプレビュー</h3>
+        <span id="bulkCount" class="modal__count">0行</span>
+      </div>
+      <div id="bulkPreview" class="modal__preview"></div>
+
+      <div class="modal__foot">
+        <label class="option option--inline">
+          <span class="option__label">取り込み方法</span>
+          <select id="bulkMode">
+            <option value="append">末尾に追加</option>
+            <option value="replace">すべて置き換え</option>
+          </select>
+        </label>
+        <div class="modal__buttons">
+          <button id="bulkCancel" class="btn" type="button" data-close>キャンセル</button>
+          <button id="bulkApply" class="btn btn--primary" type="button">取り込む</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== 使い方 ========== -->
   <section class="usage" aria-label="使い方">
     <h2>このツールでできること</h2>
@@ -108,7 +145,7 @@
     <ol>
       <li>「プリセット管理」でキャラの名前・アイコン・色を登録する（「素材から選ぶ」で、同梱のアイコンと配色をまとめて設定することもできます）</li>
       <li>「セリフ」でキャラを選んでセリフを入力する（⇄ ボタンで左右も切り替えられます）</li>
-      <li>必要なら「＋ 行を追加」で行を増やして会話にする</li>
+      <li>必要なら「＋ 行を追加」で行を増やして会話にする（台本を「まとめて貼り付け」で一括作成することもできます）</li>
       <li>「クリップボードにコピー」してnoteに貼り付ける（うまくいかないときは「PNGで保存」→ noteの画像追加から選択）</li>
     </ol>
 

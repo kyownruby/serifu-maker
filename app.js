@@ -9,24 +9,25 @@
 (() => {
   "use strict";
 
-  const LS_PRESETS = "serifu-maker:presets:v1";
+  const LS_PRESETS = "serifu-maker:presets:v1"; // キー名は据え置き。中の version で世代管理する
+  const PRESETS_VERSION = 2;
   const LS_DRAFT = "serifu-maker:draft:v1";
 
   // presets.default.json と同内容のフォールバック（file:// 直開きなど fetch 不可時用）
   const FALLBACK_PRESETS = [
-    { id: "preset1", name: "キャラ1", icon: "", bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", textColor: "#3D3238", nameColor: "#D2607C", defaultSide: "left" },
-    { id: "preset2", name: "キャラ2", icon: "", bubbleBg: "#FFF9E0", bubbleBorder: "#F0CE5A", textColor: "#3D3A32", nameColor: "#D9A616", defaultSide: "left" },
-    { id: "preset3", name: "キャラ3", icon: "", bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", textColor: "#332F3D", nameColor: "#6F58A3", defaultSide: "left" },
-    { id: "preset4", name: "キャラ4", icon: "", bubbleBg: "#EEF5F2", bubbleBorder: "#84AFA0", textColor: "#2F3A36", nameColor: "#4F8272", defaultSide: "right" }
+    { id: "preset1", name: "キャラ1", aliases: [], icon: "", bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", textColor: "#3D3238", nameColor: "#D2607C", defaultSide: "left" },
+    { id: "preset2", name: "キャラ2", aliases: [], icon: "", bubbleBg: "#FFF9E0", bubbleBorder: "#F0CE5A", textColor: "#3D3A32", nameColor: "#D9A616", defaultSide: "left" },
+    { id: "preset3", name: "キャラ3", aliases: [], icon: "", bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", textColor: "#332F3D", nameColor: "#6F58A3", defaultSide: "left" },
+    { id: "preset4", name: "キャラ4", aliases: [], icon: "", bubbleBg: "#EEF5F2", bubbleBorder: "#84AFA0", textColor: "#2F3A36", nameColor: "#4F8272", defaultSide: "right" }
   ];
 
   // 同梱の素材アイコン（アップロードとは別の導線で選べる）
   // 色はキャラのイメージカラー：枠線と名前は濃いめ、吹き出し背景は薄め、文字色は黒固定
   const BUILTIN_ICONS = [
-    { id: "kyown",  name: "きょん",  file: "./assets/icon/thumb/kyown_icon.png",  bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", nameColor: "#D2607C", textColor: "#000000" },
-    { id: "mia",    name: "ミア",    file: "./assets/icon/thumb/mia_icon.png",    bubbleBg: "#FFF9E0", bubbleBorder: "#E8BE3C", nameColor: "#C79408", textColor: "#000000" },
-    { id: "rain",   name: "レイン",  file: "./assets/icon/thumb/rain_icon.png",   bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", nameColor: "#6F58A3", textColor: "#000000" },
-    { id: "shiori", name: "しおり",  file: "./assets/icon/thumb/shiori_icon.png", bubbleBg: "#EAF4FB", bubbleBorder: "#7BAFD4", nameColor: "#3D7EA6", textColor: "#000000" }
+    { id: "kyown",  name: "きょん",  aliases: ["kyown"],           file: "./assets/icon/thumb/kyown_icon.png",  bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", nameColor: "#D2607C", textColor: "#000000" },
+    { id: "mia",    name: "ミア",    aliases: ["みあ", "Mia"],      file: "./assets/icon/thumb/mia_icon.png",    bubbleBg: "#FFF9E0", bubbleBorder: "#E8BE3C", nameColor: "#C79408", textColor: "#000000" },
+    { id: "rain",   name: "レイン",  aliases: ["れいん", "Rain"],   file: "./assets/icon/thumb/rain_icon.png",   bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", nameColor: "#6F58A3", textColor: "#000000" },
+    { id: "shiori", name: "しおり",  aliases: ["シオリ", "Shiori"], file: "./assets/icon/thumb/shiori_icon.png", bubbleBg: "#EAF4FB", bubbleBorder: "#7BAFD4", nameColor: "#3D7EA6", textColor: "#000000" }
   ];
 
   const FONT_FAMILIES = {
@@ -60,11 +61,24 @@
   // 永続化
   // ==========================================================
 
+  // version 1 → 2：aliases（別名）を追加する。既存データは壊さない
+  // localStorageのキー名は :v1 のまま（キーを変えると既存データが読めなくなるため）
+  function migrate(data) {
+    if (!data) return null;
+    if (data.version === 1 || data.version === undefined) {
+      data.presets = data.presets.map((p) => ({ ...p, aliases: p.aliases ?? [] }));
+      data.version = PRESETS_VERSION;
+    }
+    // version 2 以降でも aliases が欠けていれば補う（手で編集された場合の保険）
+    data.presets = data.presets.map((p) => (Array.isArray(p.aliases) ? p : { ...p, aliases: [] }));
+    return data;
+  }
+
   function loadPresets() {
     try {
       const raw = localStorage.getItem(LS_PRESETS);
       if (raw) {
-        const data = JSON.parse(raw);
+        const data = migrate(JSON.parse(raw));
         if (data && Array.isArray(data.presets) && data.presets.length > 0) {
           return data.presets;
         }
@@ -77,7 +91,7 @@
 
   function savePresets() {
     try {
-      localStorage.setItem(LS_PRESETS, JSON.stringify({ version: 1, presets: state.presets }));
+      localStorage.setItem(LS_PRESETS, JSON.stringify({ version: PRESETS_VERSION, presets: state.presets }));
     } catch (e) {
       setStatus("⚠️ プリセットを保存できませんでした（容量オーバーの可能性）。不要なプリセットを削除してみてください");
       console.error(e);
@@ -114,8 +128,9 @@
       const res = await fetch("./presets.default.json", { cache: "no-cache" });
       if (res.ok) {
         const data = await res.json();
-        if (data && Array.isArray(data.presets) && data.presets.length > 0) {
-          return data.presets;
+        const migrated = migrate(data);
+        if (migrated && Array.isArray(migrated.presets) && migrated.presets.length > 0) {
+          return migrated.presets;
         }
       }
     } catch (e) {
@@ -226,7 +241,7 @@
     lineListEl.textContent = "";
     state.lines.forEach((line, index) => {
       const box = document.createElement("div");
-      box.className = "line-editor";
+      box.className = "line-editor" + (line.unassigned ? " line-editor--unassigned" : "");
 
       const row = document.createElement("div");
       row.className = "line-editor__row";
@@ -244,6 +259,7 @@
       select.addEventListener("change", () => {
         line.presetId = select.value;
         line.side = getPreset(line.presetId).defaultSide === "right" ? "right" : "left";
+        delete line.unassigned; // 手で選び直したら未割り当ての印を消す
         update();
       });
       row.appendChild(select);
@@ -259,6 +275,13 @@
       });
       row.appendChild(flipBtn);
       box.appendChild(row);
+
+      if (line.unassigned) {
+        const warn = document.createElement("p");
+        warn.className = "line-editor__warn";
+        warn.textContent = "⚠️ キャラが未割り当てです（仮に先頭のプリセットを設定しています）";
+        box.appendChild(warn);
+      }
 
       const textarea = document.createElement("textarea");
       textarea.value = line.text;
@@ -365,6 +388,27 @@
       nameInput.addEventListener("change", () => update());
       head.appendChild(nameInput);
       card.appendChild(head);
+
+      // 別名（カンマ区切り）。台本の取り込みで表記ゆれを吸収するための任意項目
+      const aliasLabel = document.createElement("label");
+      aliasLabel.className = "preset-card__alias";
+      const aliasText = document.createElement("span");
+      aliasText.textContent = "別名";
+      const aliasInput = document.createElement("input");
+      aliasInput.type = "text";
+      aliasInput.className = "preset-card__aliasInput";
+      aliasInput.value = (preset.aliases || []).join(", ");
+      aliasInput.placeholder = "みあ, Mia（カンマ区切り・任意）";
+      aliasInput.addEventListener("input", () => {
+        preset.aliases = aliasInput.value
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        savePresets();
+      });
+      aliasLabel.appendChild(aliasText);
+      aliasLabel.appendChild(aliasInput);
+      card.appendChild(aliasLabel);
 
       // 中段：色4つ
       const grid = document.createElement("div");
@@ -528,6 +572,7 @@
     state.presets.push({
       id: newPresetId(),
       name: "新しいキャラ",
+      aliases: [],
       icon: "",
       bubbleBg: "#F5F5F5",
       bubbleBorder: "#BBAEB4",
@@ -547,6 +592,7 @@
     if (!res.ok) throw new Error(`素材アイコンの取得に失敗しました (${res.status})`);
     preset.icon = await resizeIcon(await res.blob());
     preset.name = builtin.name;
+    preset.aliases = [...(builtin.aliases || [])];
     preset.bubbleBg = builtin.bubbleBg;
     preset.bubbleBorder = builtin.bubbleBorder;
     preset.nameColor = builtin.nameColor;
@@ -585,6 +631,167 @@
       };
       img.src = url;
     });
+  }
+
+  // ==========================================================
+  // まとめて貼り付け（台本インポート）
+  // ==========================================================
+
+  // 1行を「キャラ名」と「セリフ」に分解する。
+  // 行頭の絵文字（複数可）はキャプチャせず読み飛ばして捨てる。
+  // 区切りは全角：と半角: の両方。最初の1つだけで分割する。
+  const LINE_RE = /^\s*(?:\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\s*)*([^:：]{1,24}?)\s*[:：]\s*(.+)$/u;
+
+  // 外側が「」で囲まれていれば1組だけ外す（中の「」は残す）
+  function stripBrackets(text) {
+    const t = text.trim();
+    if (t.length >= 2 && t.startsWith("「") && t.endsWith("」")) {
+      return t.slice(1, -1);
+    }
+    return t;
+  }
+
+  // 名前でプリセットを探す。名前 → 別名 の順。前後の空白を除き大文字小文字は区別しない
+  function findPresetByName(name) {
+    const key = (name || "").trim().toLowerCase();
+    if (!key) return null;
+    const exact = state.presets.find((p) => (p.name || "").trim().toLowerCase() === key);
+    if (exact) return exact;
+    return state.presets.find((p) =>
+      (p.aliases || []).some((a) => String(a).trim().toLowerCase() === key)
+    ) || null;
+  }
+
+  // 台本テキストを解析して、取り込み候補の配列を返す。
+  // マッチしない行は直前のセリフに改行で連結し、空行は読み飛ばす。
+  // 鉤括弧は「連結し終わってから」外す。
+  function parseScript(text) {
+    const items = [];
+    for (const raw of String(text).split(/\r?\n/)) {
+      if (raw.trim() === "") continue; // 空行は連結もしない
+      const m = raw.match(LINE_RE);
+      if (m) {
+        items.push({ name: m[1].trim(), text: m[2] });
+      } else if (items.length > 0) {
+        items[items.length - 1].text += "\n" + raw.trim();
+      } else {
+        // 1行目からマッチしない場合は未割り当ての行として扱う
+        items.push({ name: "", text: raw.trim() });
+      }
+    }
+    // 連結が終わってから括弧を外し、プリセットを照合する
+    return items.map((it) => {
+      const preset = it.name ? findPresetByName(it.name) : null;
+      return {
+        name: it.name,
+        text: stripBrackets(it.text),
+        presetId: preset ? preset.id : "",
+        matched: !!preset
+      };
+    });
+  }
+
+  // ---------- 取り込みモーダル ----------
+
+  let bulkItems = []; // プレビュー中の候補
+
+  function openBulkModal() {
+    $("#bulkModal").hidden = false;
+    $("#bulkInput").value = "";
+    refreshBulkPreview();
+    $("#bulkInput").focus();
+    document.addEventListener("keydown", onBulkKeydown);
+  }
+
+  function closeBulkModal() {
+    $("#bulkModal").hidden = true;
+    document.removeEventListener("keydown", onBulkKeydown);
+  }
+
+  function onBulkKeydown(e) {
+    if (e.key === "Escape") closeBulkModal();
+  }
+
+  function refreshBulkPreview() {
+    bulkItems = parseScript($("#bulkInput").value);
+    const listEl = $("#bulkPreview");
+    listEl.textContent = "";
+    const unmatched = bulkItems.filter((i) => !i.matched).length;
+    $("#bulkCount").textContent =
+      `${bulkItems.length}行` + (unmatched > 0 ? `（うち未割り当て ${unmatched}行）` : "");
+
+    bulkItems.forEach((item, index) => {
+      const row = document.createElement("div");
+      row.className = "bulk-row" + (item.matched ? "" : " bulk-row--unmatched");
+
+      const select = document.createElement("select");
+      select.className = "bulk-row__select";
+      select.setAttribute("aria-label", `${index + 1}行目のキャラ`);
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = item.name ? `（未登録：${item.name}）` : "（キャラを選択）";
+      select.appendChild(blank);
+      for (const p of state.presets) {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name || "（名前なし）";
+        if (p.id === item.presetId) opt.selected = true;
+        select.appendChild(opt);
+      }
+      select.addEventListener("change", () => {
+        item.presetId = select.value;
+        item.matched = !!select.value;
+        refreshBulkRowState(row, item);
+        const un = bulkItems.filter((i) => !i.matched).length;
+        $("#bulkCount").textContent =
+          `${bulkItems.length}行` + (un > 0 ? `（うち未割り当て ${un}行）` : "");
+      });
+
+      const textEl = document.createElement("div");
+      textEl.className = "bulk-row__text";
+      textEl.textContent = item.text;
+
+      row.appendChild(select);
+      row.appendChild(textEl);
+      listEl.appendChild(row);
+    });
+
+    if (bulkItems.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "hint";
+      empty.textContent = "上のテキストエリアに台本を貼り付けると、ここに取り込む内容が表示されます。";
+      listEl.appendChild(empty);
+    }
+  }
+
+  function refreshBulkRowState(row, item) {
+    row.classList.toggle("bulk-row--unmatched", !item.matched);
+  }
+
+  function applyBulk() {
+    if (bulkItems.length === 0) {
+      setStatus("⚠️ 取り込む行がありません");
+      return;
+    }
+    const mode = $("#bulkMode").value;
+    if (mode === "replace") {
+      if (!confirm(`現在の ${state.lines.length} 行をすべて削除して、${bulkItems.length} 行に置き換えます。よろしいですか？`)) return;
+    }
+    // 未割り当ては先頭のプリセットを仮に割り当て、行に印を付ける（印は編集パネルのみ・書き出しには出さない）
+    const newLines = bulkItems.map((item) => {
+      const preset = item.presetId ? getPreset(item.presetId) : state.presets[0];
+      return {
+        presetId: preset.id,
+        text: item.text,
+        side: preset.defaultSide === "right" ? "right" : "left",
+        unassigned: !item.matched
+      };
+    });
+    state.lines = mode === "replace" ? newLines : state.lines.concat(newLines);
+    closeBulkModal();
+    update();
+    const un = newLines.filter((l) => l.unassigned).length;
+    setStatus(`✅ ${newLines.length}行を取り込みました` + (un > 0 ? `（${un}行はキャラ未割り当てです）` : ""));
   }
 
   // ==========================================================
@@ -791,6 +998,12 @@
 
     bindOptions();
     $("#addLineBtn").addEventListener("click", addLine);
+    $("#bulkPasteBtn").addEventListener("click", openBulkModal);
+    $("#bulkInput").addEventListener("input", refreshBulkPreview);
+    $("#bulkApply").addEventListener("click", applyBulk);
+    for (const el of document.querySelectorAll("#bulkModal [data-close]")) {
+      el.addEventListener("click", closeBulkModal);
+    }
     $("#addPresetBtn").addEventListener("click", addPreset);
     $("#savePngBtn").addEventListener("click", onSavePng);
     $("#copyBtn").addEventListener("click", onCopy);
