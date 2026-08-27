@@ -96,13 +96,15 @@
       <div id="outputBox" class="output-box" hidden>
         <div class="output-box__head">
           <h3 class="output-box__title">出力した画像 <span id="outputCount" class="output-box__count"></span></h3>
-          <button id="selectAllBtn" class="btn" type="button" hidden>全部選択</button>
+          <button id="saveAllBtn" class="btn" type="button" hidden>すべて保存</button>
         </div>
         <p class="hint">
-          複数枚のときは「全部選択」→ <kbd>Ctrl</kbd>+<kbd>C</kbd>（Macは <kbd>⌘</kbd>+<kbd>C</kbd>）でまとめてコピーできます。<br>
-          1枚ずつなら、画像を右クリック →「画像をコピー」「画像を保存」も使えます。
+          「コピー」を押すと、その1枚がクリップボードに入ります。貼り付け先で <kbd>Ctrl</kbd>+<kbd>V</kbd> してください。
         </p>
-        <div id="outputArea" class="output-area" contenteditable="true" spellcheck="false"></div>
+        <p id="multiHint" class="hint" hidden>
+          複数枚をまとめて貼りたいときは「すべて保存」でファイルにしてから、保存した画像をまとめて選んで貼り付け先へドラッグ&amp;ドロップしてください。
+        </p>
+        <div id="outputArea" class="output-area"></div>
       </div>
     </section>
   </main>
@@ -152,7 +154,7 @@
       <li>「プリセット管理」でキャラの名前・アイコン・色を登録する（「素材から選ぶ」で、同梱のアイコンと配色をまとめて設定することもできます）</li>
       <li>「セリフ」でキャラを選んでセリフを入力する（⇄ ボタンで左右も切り替えられます）</li>
       <li>必要なら「＋ 行を追加」で行を増やして会話にする（台本を「まとめて貼り付け」で一括作成することもできます）</li>
-      <li>「出力」を押すと画像ができます。1枚なら自動でクリップボードにコピー、複数枚なら「全部選択」→ Ctrl+C でまとめてコピーしてnoteに貼り付け</li>
+      <li>「出力」を押すと画像ができます。「コピー」で1枚ずつ貼り付けるか、複数枚は「すべて保存」してからまとめてドラッグ&amp;ドロップ</li>
     </ol>
 
     <h2>保存について（重要）</h2>
@@ -172,7 +174,7 @@
     <ul>
       <li>パソコンまたはタブレット（横向き）でのご利用を推奨します</li>
       <li>透過PNGはnoteのダークモードでは文字が見えづらいことがあります。気になる場合は背景「白」もお試しください</li>
-      <li>複数枚をまとめてコピーした場合、貼り付け先によっては画像が入らないことがあります。そのときは画像を1枚ずつ右クリック →「画像をコピー」で貼り付けてください</li>
+      <li>クリップボードには一度に1枚しか入りません（ブラウザの仕様）。複数枚をまとめて貼りたいときは「すべて保存」→ ファイルをドラッグ&amp;ドロップしてください</li>
     </ul>
   </section>
 
