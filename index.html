@@ -83,21 +83,26 @@
       <h2 class="panel__title">プレビュー <span class="hint hint--inline">（市松模様の部分が透過になります）</span></h2>
       <div class="preview-scroll">
         <div id="previewWrapper" class="preview-wrapper preview-wrapper--checker">
-          <!-- ここが書き出し対象。プレビュー＝出力そのもの -->
-          <div id="canvas" class="canvas"></div>
+          <!-- グループ（＝画像1枚ぶん）を並べる入れ物。書き出し対象は中の .canvas -->
+          <div id="canvas" class="canvas-list"></div>
         </div>
       </div>
 
       <div class="export-buttons">
-        <button id="savePngBtn" class="btn btn--primary" type="button">PNGで保存</button>
-        <button id="copyBtn" class="btn btn--primary" type="button">クリップボードにコピー</button>
-        <button id="saveEachBtn" class="btn" type="button">1行ずつ個別に保存</button>
+        <button id="outputBtn" class="btn btn--primary" type="button">出力</button>
       </div>
       <p id="exportStatus" class="export-status" role="status"></p>
 
-      <div id="resultArea" class="result-area" hidden>
-        <h3 class="result-area__title">書き出し結果（保存し忘れたときの確認用。noteに貼るときは上の2つのボタンを使ってください）</h3>
-        <img id="resultImg" class="result-area__img" alt="書き出したセリフ画像">
+      <div id="outputBox" class="output-box" hidden>
+        <div class="output-box__head">
+          <h3 class="output-box__title">出力した画像 <span id="outputCount" class="output-box__count"></span></h3>
+          <button id="selectAllBtn" class="btn" type="button" hidden>全部選択</button>
+        </div>
+        <p class="hint">
+          複数枚のときは「全部選択」→ <kbd>Ctrl</kbd>+<kbd>C</kbd>（Macは <kbd>⌘</kbd>+<kbd>C</kbd>）でまとめてコピーできます。<br>
+          1枚ずつなら、画像を右クリック →「画像をコピー」「画像を保存」も使えます。
+        </p>
+        <div id="outputArea" class="output-area" contenteditable="true" spellcheck="false"></div>
       </div>
     </section>
   </main>
@@ -108,11 +113,12 @@
     <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="bulkTitle">
       <h2 id="bulkTitle" class="modal__title">まとめて貼り付け</h2>
       <p class="hint">
-        <code>ミア：「こんにちは」</code> のような台本を貼り付けると、会話の行がまとめて作られます。<br>
-        行頭の絵文字と「」は自動で取り除かれます。キャラ名は、プリセットの名前と照合します。
+        記事の本文をそのまま貼り付けてください。<code>ミア：「こんにちは」</code> のような<strong>合いの手の行だけ</strong>を取り出して画像にします。<br>
+        <strong>地の文は画像になりません。</strong>合いの手が地の文で分かれている場合は、それぞれ別の画像になります。<br>
+        行頭の絵文字と「」は自動で取り除かれます。キャラ名はプリセットの名前と照合します。
       </p>
 
-      <textarea id="bulkInput" class="modal__input" rows="8" placeholder="🐈ミア：「こんにちはっ！」&#10;☔レイン：「うるさいわね」&#10;📖しおり：「あの……こんにちは」"></textarea>
+      <textarea id="bulkInput" class="modal__input" rows="8" placeholder="今日はツールを作ったよ。&#10;&#10;🐈ミア：「わぁ、すごいっ！」&#10;☔レイン：「まあまあね」&#10;&#10;そのあと調整をした。&#10;&#10;🐈ミア：「完成〜っ！」"></textarea>
 
       <div class="modal__previewHead">
         <h3 class="modal__subtitle">取り込みプレビュー</h3>
@@ -146,7 +152,7 @@
       <li>「プリセット管理」でキャラの名前・アイコン・色を登録する（「素材から選ぶ」で、同梱のアイコンと配色をまとめて設定することもできます）</li>
       <li>「セリフ」でキャラを選んでセリフを入力する（⇄ ボタンで左右も切り替えられます）</li>
       <li>必要なら「＋ 行を追加」で行を増やして会話にする（台本を「まとめて貼り付け」で一括作成することもできます）</li>
-      <li>「クリップボードにコピー」してnoteに貼り付ける（うまくいかないときは「PNGで保存」→ noteの画像追加から選択）</li>
+      <li>「出力」を押すと画像ができます。1枚なら自動でクリップボードにコピー、複数枚なら「全部選択」→ Ctrl+C でまとめてコピーしてnoteに貼り付け</li>
     </ol>
 
     <h2>保存について（重要）</h2>
@@ -166,7 +172,7 @@
     <ul>
       <li>パソコンまたはタブレット（横向き）でのご利用を推奨します</li>
       <li>透過PNGはnoteのダークモードでは文字が見えづらいことがあります。気になる場合は背景「白」もお試しください</li>
-      <li>下に表示される結果画像を「右クリック →画像をコピー」しても、noteには貼り付けられないことがあります。「クリップボードにコピー」ボタン、または「PNGで保存」したファイルを使ってください</li>
+      <li>複数枚をまとめてコピーした場合、貼り付け先によっては画像が入らないことがあります。そのときは画像を1枚ずつ右クリック →「画像をコピー」で貼り付けてください</li>
     </ul>
   </section>
 

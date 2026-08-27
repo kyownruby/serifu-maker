@@ -3,7 +3,7 @@
  * - プリセット管理（localStorage: serifu-maker:presets:v1）
  * - セリフ行の編集（下書き: serifu-maker:draft:v1）
  * - プレビュー描画（プレビュー＝書き出し対象そのもの）
- * - PNG保存／クリップボードコピー／1行ずつ個別保存
+ * - 出力（グループごとに画像化。1枚ならクリップボードにもコピー）
  * ========================================================== */
 
 (() => {
@@ -152,21 +152,6 @@
     statusEl.textContent = msg || "";
   }
 
-  function timestamp() {
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-  }
-
-  function downloadDataUrl(dataUrl, filename) {
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
-
   // ==========================================================
   // 書き出し対象（.canvas）の描画
   // プレビューに表示している要素をそのまま書き出す
@@ -216,16 +201,48 @@
     el.style.fontSize = state.options.fontSize + "px";
   }
 
-  function renderCanvas() {
-    applyCanvasStyle(canvasEl);
-    canvasEl.textContent = "";
-    let prevKey = null;
+  // 行をグループ番号ごとにまとめる。グループ1つにつき画像1枚になる
+  function groupedLines() {
+    const map = new Map();
     for (const line of state.lines) {
+      const g = Number.isInteger(line.group) ? line.group : 0;
+      if (!map.has(g)) map.set(g, []);
+      map.get(g).push(line);
+    }
+    return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([, lines]) => lines);
+  }
+
+  // 1グループぶんの書き出し対象要素を作る
+  function buildGroupCanvas(lines) {
+    const el = document.createElement("div");
+    applyCanvasStyle(el);
+    let prevKey = null;
+    for (const line of lines) {
       const key = line.presetId + "/" + line.side;
       const continued = !state.options.everyIcon && key === prevKey;
-      canvasEl.appendChild(buildLineElement(line, { continued }));
+      el.appendChild(buildLineElement(line, { continued }));
       prevKey = key;
     }
+    return el;
+  }
+
+  function renderCanvas() {
+    canvasEl.textContent = "";
+    const groups = groupedLines();
+    groups.forEach((lines, index) => {
+      const wrap = document.createElement("div");
+      wrap.className = "canvas-group";
+      if (groups.length > 1) {
+        const label = document.createElement("div");
+        label.className = "canvas-group__label";
+        label.textContent = `${index + 1}枚目`;
+        wrap.appendChild(label);
+      }
+      const shot = buildGroupCanvas(lines);
+      shot.classList.add("canvas-group__shot");
+      wrap.appendChild(shot);
+      canvasEl.appendChild(wrap);
+    });
     previewWrapper.classList.toggle("preview-wrapper--checker", state.options.background === "transparent");
     previewWrapper.classList.toggle("preview-wrapper--white", state.options.background === "white");
   }
@@ -236,7 +253,17 @@
 
   function renderLineEditors() {
     lineListEl.textContent = "";
+    let prevGroup = null;
+    const multiGroup = groupedLines().length > 1;
     state.lines.forEach((line, index) => {
+      const g = Number.isInteger(line.group) ? line.group : 0;
+      if (multiGroup && g !== prevGroup) {
+        const sep = document.createElement("p");
+        sep.className = "line-group-sep";
+        sep.textContent = `― ${groupedLines().findIndex((ls) => ls.includes(line)) + 1}枚目 ―`;
+        lineListEl.appendChild(sep);
+        prevGroup = g;
+      }
       const box = document.createElement("div");
       box.className = "line-editor" + (line.unassigned ? " line-editor--unassigned" : "");
 
@@ -339,7 +366,8 @@
     state.lines.push({
       presetId: preset.id,
       text: "",
-      side: preset.defaultSide === "right" ? "right" : "left"
+      side: preset.defaultSide === "right" ? "right" : "left",
+      group: last && Number.isInteger(last.group) ? last.group : 0
     });
     update();
   }
@@ -633,38 +661,80 @@
     return state.presets.find((p) => (p.name || "").trim().toLowerCase() === key) || null;
   }
 
-  // 台本テキストを解析して、取り込み候補の配列を返す。
-  // マッチしない行は直前のセリフに改行で連結し、空行は読み飛ばす。
-  // 鉤括弧は「連結し終わってから」外す。
+  // 記事本文を解析して、合いの手（キャラのセリフ）だけをグループ単位で取り出す。
+  //
+  // - 「キャラ名：セリフ」の行だけを拾う。地の文は作らずに捨てる
+  // - 「」が閉じていない間は、次の行をセリフの続きとみなして連結する
+  // - 地の文が挟まったらそこでグループを区切る（＝別の画像になる）
+  // - 空行は読み飛ばすだけでグループは切らない
+  //
+  // 戻り値：グループの配列。各グループは行の配列
   function parseScript(text) {
-    const items = [];
+    const groups = [];
+    let current = [];   // 組み立て中のグループ
+    let pending = null; // 「」が閉じていないセリフ
+
+    const closePending = () => {
+      if (pending) {
+        current.push(pending);
+        pending = null;
+      }
+    };
+    const breakGroup = () => {
+      closePending();
+      if (current.length > 0) {
+        groups.push(current);
+        current = [];
+      }
+    };
+    // 「の数と」の数を数えて、閉じ切っていなければ継続中とみなす
+    const isOpen = (s) => {
+      const open = (s.match(/「/g) || []).length;
+      const close = (s.match(/」/g) || []).length;
+      return open > close;
+    };
+
     for (const raw of String(text).split(/\r?\n/)) {
-      if (raw.trim() === "") continue; // 空行は連結もしない
+      if (raw.trim() === "") {
+        // 空行：セリフの途中なら改行として残し、そうでなければ読み飛ばす
+        if (pending) pending.text += "\n";
+        continue;
+      }
       const m = raw.match(LINE_RE);
       if (m) {
-        items.push({ name: m[1].trim(), text: m[2] });
-      } else if (items.length > 0) {
-        items[items.length - 1].text += "\n" + raw.trim();
+        // 新しい合いの手。前のセリフが途中でも、ここで確定させる
+        closePending();
+        const line = { name: m[1].trim(), text: m[2].trim() };
+        if (isOpen(line.text)) pending = line;
+        else current.push(line);
+      } else if (pending) {
+        // 「」が閉じていない間はセリフの続き
+        pending.text += "\n" + raw.trim();
+        if (!isOpen(pending.text)) closePending();
       } else {
-        // 1行目からマッチしない場合は未割り当ての行として扱う
-        items.push({ name: "", text: raw.trim() });
+        // 地の文。捨てたうえで、ここでグループを区切る
+        breakGroup();
       }
     }
-    // 連結が終わってから括弧を外し、プリセットを照合する
-    return items.map((it) => {
-      const preset = it.name ? findPresetByName(it.name) : null;
-      return {
-        name: it.name,
-        text: stripBrackets(it.text),
-        presetId: preset ? preset.id : "",
-        matched: !!preset
-      };
-    });
+    breakGroup();
+
+    // 括弧外しとプリセット照合は、連結が終わってから行う
+    return groups.map((g) =>
+      g.map((it) => {
+        const preset = it.name ? findPresetByName(it.name) : null;
+        return {
+          name: it.name,
+          text: stripBrackets(it.text),
+          presetId: preset ? preset.id : "",
+          matched: !!preset
+        };
+      })
+    );
   }
 
   // ---------- 取り込みモーダル ----------
 
-  let bulkItems = []; // プレビュー中の候補
+  let bulkGroups = []; // プレビュー中の候補（グループの配列）
 
   function openBulkModal() {
     $("#bulkModal").hidden = false;
@@ -683,86 +753,123 @@
     if (e.key === "Escape") closeBulkModal();
   }
 
+  function bulkCounts() {
+    const lines = bulkGroups.flat();
+    return {
+      groups: bulkGroups.length,
+      lines: lines.length,
+      unmatched: lines.filter((i) => !i.matched).length
+    };
+  }
+
+  function refreshBulkCount() {
+    const c = bulkCounts();
+    $("#bulkCount").textContent =
+      c.lines === 0 ? "0行" : `画像${c.groups}枚 / ${c.lines}行` + (c.unmatched > 0 ? `（未割り当て ${c.unmatched}行）` : "");
+  }
+
   function refreshBulkPreview() {
-    bulkItems = parseScript($("#bulkInput").value);
+    bulkGroups = parseScript($("#bulkInput").value);
     const listEl = $("#bulkPreview");
     listEl.textContent = "";
-    const unmatched = bulkItems.filter((i) => !i.matched).length;
-    $("#bulkCount").textContent =
-      `${bulkItems.length}行` + (unmatched > 0 ? `（うち未割り当て ${unmatched}行）` : "");
+    refreshBulkCount();
 
-    bulkItems.forEach((item, index) => {
-      const row = document.createElement("div");
-      row.className = "bulk-row" + (item.matched ? "" : " bulk-row--unmatched");
+    bulkGroups.forEach((group, gi) => {
+      const box = document.createElement("div");
+      box.className = "bulk-group";
 
-      const select = document.createElement("select");
-      select.className = "bulk-row__select";
-      select.setAttribute("aria-label", `${index + 1}行目のキャラ`);
-      const blank = document.createElement("option");
-      blank.value = "";
-      blank.textContent = item.name ? `（未登録：${item.name}）` : "（キャラを選択）";
-      select.appendChild(blank);
-      for (const p of state.presets) {
-        const opt = document.createElement("option");
-        opt.value = p.id;
-        opt.textContent = p.name || "（名前なし）";
-        if (p.id === item.presetId) opt.selected = true;
-        select.appendChild(opt);
-      }
-      select.addEventListener("change", () => {
-        item.presetId = select.value;
-        item.matched = !!select.value;
-        refreshBulkRowState(row, item);
-        const un = bulkItems.filter((i) => !i.matched).length;
-        $("#bulkCount").textContent =
-          `${bulkItems.length}行` + (un > 0 ? `（うち未割り当て ${un}行）` : "");
+      const head = document.createElement("p");
+      head.className = "bulk-group__head";
+      head.textContent = `${gi + 1}枚目（${group.length}行）`;
+      box.appendChild(head);
+
+      group.forEach((item, index) => {
+        const row = document.createElement("div");
+        row.className = "bulk-row" + (item.matched ? "" : " bulk-row--unmatched");
+
+        const select = document.createElement("select");
+        select.className = "bulk-row__select";
+        select.setAttribute("aria-label", `${gi + 1}枚目 ${index + 1}行目のキャラ`);
+        const blank = document.createElement("option");
+        blank.value = "";
+        blank.textContent = item.name ? `（未登録：${item.name}）` : "（キャラを選択）";
+        select.appendChild(blank);
+        for (const p of state.presets) {
+          const opt = document.createElement("option");
+          opt.value = p.id;
+          opt.textContent = p.name || "（名前なし）";
+          if (p.id === item.presetId) opt.selected = true;
+          select.appendChild(opt);
+        }
+        select.addEventListener("change", () => {
+          item.presetId = select.value;
+          item.matched = !!select.value;
+          row.classList.toggle("bulk-row--unmatched", !item.matched);
+          refreshBulkCount();
+        });
+
+        const textEl = document.createElement("div");
+        textEl.className = "bulk-row__text";
+        textEl.textContent = item.text;
+
+        row.appendChild(select);
+        row.appendChild(textEl);
+        box.appendChild(row);
       });
 
-      const textEl = document.createElement("div");
-      textEl.className = "bulk-row__text";
-      textEl.textContent = item.text;
-
-      row.appendChild(select);
-      row.appendChild(textEl);
-      listEl.appendChild(row);
+      listEl.appendChild(box);
     });
 
-    if (bulkItems.length === 0) {
+    if (bulkGroups.length === 0) {
       const empty = document.createElement("p");
       empty.className = "hint";
-      empty.textContent = "上のテキストエリアに台本を貼り付けると、ここに取り込む内容が表示されます。";
+      empty.textContent =
+        $("#bulkInput").value.trim() === ""
+          ? "上のテキストエリアに記事本文を貼り付けると、合いの手だけを取り出してここに表示します。"
+          : "合いの手（「キャラ名：セリフ」の行）が見つかりませんでした。";
       listEl.appendChild(empty);
     }
   }
 
-  function refreshBulkRowState(row, item) {
-    row.classList.toggle("bulk-row--unmatched", !item.matched);
-  }
-
   function applyBulk() {
-    if (bulkItems.length === 0) {
-      setStatus("⚠️ 取り込む行がありません");
+    if (bulkGroups.length === 0) {
+      setStatus("⚠️ 取り込む合いの手がありません");
       return;
     }
+    const c = bulkCounts();
     const mode = $("#bulkMode").value;
     if (mode === "replace") {
-      if (!confirm(`現在の ${state.lines.length} 行をすべて削除して、${bulkItems.length} 行に置き換えます。よろしいですか？`)) return;
+      if (!confirm(`現在の ${state.lines.length} 行をすべて削除して、画像${c.groups}枚（${c.lines}行）に置き換えます。よろしいですか？`)) return;
     }
-    // 未割り当ては先頭のプリセットを仮に割り当て、行に印を付ける（印は編集パネルのみ・書き出しには出さない）
-    const newLines = bulkItems.map((item) => {
-      const preset = item.presetId ? getPreset(item.presetId) : state.presets[0];
-      return {
-        presetId: preset.id,
-        text: item.text,
-        side: preset.defaultSide === "right" ? "right" : "left",
-        unassigned: !item.matched
-      };
+    // 追加のときは既存グループの後ろに続ける
+    const base =
+      mode === "replace"
+        ? 0
+        : state.lines.reduce((max, l) => Math.max(max, Number.isInteger(l.group) ? l.group : 0), -1) + 1;
+
+    const newLines = [];
+    bulkGroups.forEach((group, gi) => {
+      for (const item of group) {
+        // 未割り当ては先頭のプリセットを仮に割り当て、行に印を付ける（印は編集パネルのみ）
+        const preset = item.presetId ? getPreset(item.presetId) : state.presets[0];
+        newLines.push({
+          presetId: preset.id,
+          text: item.text,
+          side: preset.defaultSide === "right" ? "right" : "left",
+          group: base + gi,
+          unassigned: !item.matched
+        });
+      }
     });
+
     state.lines = mode === "replace" ? newLines : state.lines.concat(newLines);
     closeBulkModal();
+    clearOutput();
     update();
-    const un = newLines.filter((l) => l.unassigned).length;
-    setStatus(`✅ ${newLines.length}行を取り込みました` + (un > 0 ? `（${un}行はキャラ未割り当てです）` : ""));
+    setStatus(
+      `✅ 画像${c.groups}枚ぶん（${c.lines}行）を取り込みました` +
+        (c.unmatched > 0 ? `（${c.unmatched}行はキャラ未割り当てです）` : "")
+    );
   }
 
   // ==========================================================
@@ -805,90 +912,130 @@
     return await htmlToImage.toBlob(node, opts);
   }
 
-  // 結果画像は blob: URL で表示する。
-  // data: URL だと、右クリック→「画像をコピー」でnoteなどのエディタに貼れないため
-  let lastResultUrl = null;
+  // 出力した画像は blob: URL で表示する。
+  // data: URL だと右クリック→「画像をコピー」でnoteに貼れないため
+  // 表示は blob:（右クリック →「画像をコピー」が確実に動く）
+  // コピー時は data: に差し替える（blob: は他サイトから解決できないため）
+  let outputUrls = [];
+  const outputDataUrls = new Map(); // blob: URL → data: URL
 
-  function showResult(blob) {
-    if (lastResultUrl) URL.revokeObjectURL(lastResultUrl);
-    lastResultUrl = URL.createObjectURL(blob);
-    $("#resultArea").hidden = false;
-    $("#resultImg").src = lastResultUrl;
+  function clearOutput() {
+    for (const u of outputUrls) URL.revokeObjectURL(u);
+    outputUrls = [];
+    outputDataUrls.clear();
+    const area = $("#outputArea");
+    if (area) area.textContent = "";
+    const box = $("#outputBox");
+    if (box) box.hidden = true;
   }
 
-  async function showResultFromDataUrl(dataUrl) {
-    const res = await fetch(dataUrl);
-    showResult(await res.blob());
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
   }
 
-  async function onSavePng() {
-    try {
-      setStatus("書き出し中…");
-      const dataUrl = await exportPng(canvasEl);
-      downloadDataUrl(dataUrl, `serifu_${timestamp()}.png`);
-      await showResultFromDataUrl(dataUrl);
-      setStatus("✅ PNGを保存しました");
-    } catch (e) {
-      setStatus("⚠️ 書き出しに失敗しました。ページを再読み込みして試してください");
-      console.error(e);
-    }
+  // 出力エリアのコピーを横取りして、data: URL 版のHTMLをクリップボードに載せる
+  function onOutputCopy(e) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const imgs = sel.getRangeAt(0).cloneContents().querySelectorAll("img");
+    if (imgs.length === 0) return; // 画像を含まない選択は既定の動作にまかせる
+    const html = [...imgs]
+      .map((img) => outputDataUrls.get(img.src))
+      .filter(Boolean)
+      .map((dataUrl) => `<img src="${dataUrl}">`)
+      .join("<br>");
+    if (!html) return;
+    e.clipboardData.setData("text/html", html);
+    e.clipboardData.setData("text/plain", "");
+    e.preventDefault();
+    setStatus(`✅ ${imgs.length}枚をコピーしました。貼り付け先に貼ってください`);
   }
 
-  async function onCopy() {
-    try {
-      setStatus("コピー中…");
-      const blob = await exportBlob(canvasEl);
-      if (!blob) throw new Error("blob生成に失敗");
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      showResult(blob);
-      setStatus("✅ クリップボードにコピーしました");
-    } catch (e) {
-      console.error(e);
-      // Safari など非同期を挟むと失敗するブラウザ向けフォールバック（仕様§7-2）
-      try {
-        const dataUrl = await exportPng(canvasEl);
-        await showResultFromDataUrl(dataUrl);
-      } catch (e2) {
-        console.error(e2);
-      }
-      setStatus("⚠️ コピーできませんでした。「PNGで保存」でファイルに保存してから、noteの画像追加で選んでください");
-    }
-  }
-
-  // 1行ずつ個別書き出し（仕様§7-4）：各行を単独レンダリングして連続ダウンロード
-  async function onSaveEach() {
-    const lines = state.lines.filter((l) => (l.text || "").length > 0);
-    if (lines.length === 0) {
-      setStatus("⚠️ セリフが入力されていません");
-      return;
-    }
-    setStatus("1行ずつ書き出し中…");
+  // 1グループぶんを画面外でレンダリングして画像にする
+  async function renderGroupToBlob(lines) {
     const holder = document.createElement("div");
     holder.style.position = "absolute";
     holder.style.left = "-99999px";
     holder.style.top = "0";
+    const shot = buildGroupCanvas(lines);
+    holder.appendChild(shot);
     document.body.appendChild(holder);
     try {
-      const stamp = timestamp();
-      for (let i = 0; i < lines.length; i++) {
-        const single = document.createElement("div");
-        applyCanvasStyle(single);
-        single.appendChild(buildLineElement(lines[i])); // 個別出力は常にアイコン付き
-        holder.appendChild(single);
-        const dataUrl = await exportPng(single);
-        downloadDataUrl(dataUrl, `serifu_${stamp}_${String(i + 1).padStart(2, "0")}.png`);
-        holder.removeChild(single);
-        // 連続ダウンロードがブロックされないよう少し間を空ける
-        await new Promise((r) => setTimeout(r, 300));
-        setStatus(`1行ずつ書き出し中… (${i + 1}/${lines.length})`);
-      }
-      setStatus(`✅ ${lines.length} 枚を保存しました`);
-    } catch (e) {
-      setStatus("⚠️ 書き出しに失敗しました");
-      console.error(e);
+      await waitFonts();
+      const opts = exportOptions();
+      await htmlToImage.toBlob(shot, opts); // 1回目は捨てる（初回描画崩れ対策）
+      return await htmlToImage.toBlob(shot, opts);
     } finally {
       holder.remove();
     }
+  }
+
+  async function onOutput() {
+    const groups = groupedLines().filter((lines) => lines.some((l) => (l.text || "").length > 0));
+    if (groups.length === 0) {
+      setStatus("⚠️ セリフが入力されていません");
+      return;
+    }
+    clearOutput();
+    setStatus("出力中…");
+    try {
+      const area = $("#outputArea");
+      for (let i = 0; i < groups.length; i++) {
+        const blob = await renderGroupToBlob(groups[i]);
+        if (!blob) throw new Error("画像の生成に失敗しました");
+        const url = URL.createObjectURL(blob);
+        outputUrls.push(url);
+        outputDataUrls.set(url, await blobToDataUrl(blob));
+
+        const img = document.createElement("img");
+        img.className = "output-area__img";
+        img.src = url;
+        img.alt = `${i + 1}枚目`;
+        area.appendChild(img);
+        // 画像どうしを別々の段落にしておく（貼り付け先で1枚ずつに分かれるように）
+        area.appendChild(document.createElement("br"));
+
+        setStatus(`出力中… (${i + 1}/${groups.length})`);
+      }
+      $("#outputBox").hidden = false;
+      $("#outputCount").textContent = `${groups.length}枚`;
+      $("#selectAllBtn").hidden = groups.length <= 1;
+
+      // 1枚だけならクリップボードにも入れておく（確実に貼れる経路）
+      if (groups.length === 1) {
+        try {
+          const blob = await fetch(outputUrls[0]).then((r) => r.blob());
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          setStatus("✅ 出力しました（クリップボードにもコピー済み）");
+        } catch (e) {
+          console.error(e);
+          setStatus("✅ 出力しました（自動コピーは失敗。画像を右クリック →「画像をコピー」を使ってください）");
+        }
+      } else {
+        setStatus(`✅ ${groups.length}枚を出力しました。「全部選択」→ Ctrl+C でまとめてコピーできます`);
+      }
+    } catch (e) {
+      console.error(e);
+      setStatus("⚠️ 出力に失敗しました。ページを再読み込みして試してください");
+    }
+  }
+
+  // 出力エリアの中身をすべて選択する（このあと Ctrl+C でまとめてコピーできる）
+  function selectAllOutput() {
+    const area = $("#outputArea");
+    if (!area || outputUrls.length === 0) return;
+    area.focus();
+    const range = document.createRange();
+    range.selectNodeContents(area);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    setStatus("✅ 全部選択しました。Ctrl+C（Macは ⌘+C）でコピーしてください");
   }
 
   // ==========================================================
@@ -976,9 +1123,9 @@
       el.addEventListener("click", closeBulkModal);
     }
     $("#addPresetBtn").addEventListener("click", addPreset);
-    $("#savePngBtn").addEventListener("click", onSavePng);
-    $("#copyBtn").addEventListener("click", onCopy);
-    $("#saveEachBtn").addEventListener("click", onSaveEach);
+    $("#outputBtn").addEventListener("click", onOutput);
+    $("#selectAllBtn").addEventListener("click", selectAllOutput);
+    $("#outputArea").addEventListener("copy", onOutputCopy);
 
     update();
     waitFonts().then(() => renderCanvas());
