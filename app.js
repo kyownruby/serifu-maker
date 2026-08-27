@@ -1004,9 +1004,50 @@
   }
 
   // すべてPNGファイルとして保存する。
-  // まとめて貼りたいときは、保存したファイルを選んで貼り付け先へドラッグ&ドロップする
+  // まとめて貼りたいときは、保存したフォルダを開いて全選択し、貼り付け先へドラッグ&ドロップする
   async function saveAllImages() {
     if (outputUrls.length === 0) return;
+    const folderName = `serifu_${timestamp()}`;
+
+    // Chrome / Edge：フォルダを選んでもらい、その中にサブフォルダを作って直接書き込む
+    if (typeof window.showDirectoryPicker === "function") {
+      let dir;
+      try {
+        const parent = await window.showDirectoryPicker({ mode: "readwrite" });
+        dir = await parent.getDirectoryHandle(folderName, { create: true });
+      } catch (e) {
+        if (e && e.name === "AbortError") {
+          setStatus("保存をキャンセルしました");
+          return;
+        }
+        // 権限が得られなかった場合などは、1枚ずつのダウンロードに切り替える
+        console.warn("フォルダへの保存に失敗したためダウンロードに切り替えます:", e);
+        await downloadAllImages();
+        return;
+      }
+      try {
+        setStatus("保存中…");
+        for (let i = 0; i < outputUrls.length; i++) {
+          const blob = await fetch(outputUrls[i]).then((r) => r.blob());
+          const handle = await dir.getFileHandle(`${String(i + 1).padStart(2, "0")}.png`, { create: true });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          setStatus(`保存中… (${i + 1}/${outputUrls.length})`);
+        }
+        setStatus(`✅ ${folderName} フォルダに ${outputUrls.length}枚を保存しました`);
+      } catch (e) {
+        console.error(e);
+        setStatus("⚠️ フォルダへの保存に失敗しました");
+      }
+      return;
+    }
+
+    // 非対応ブラウザ（Firefox / Safari など）は連番ファイルのダウンロード
+    await downloadAllImages();
+  }
+
+  async function downloadAllImages() {
     setStatus("保存中…");
     const stamp = timestamp();
     for (let i = 0; i < outputUrls.length; i++) {
