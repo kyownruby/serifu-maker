@@ -1013,7 +1013,11 @@
     if (typeof window.showDirectoryPicker === "function") {
       let dir;
       try {
-        const parent = await window.showDirectoryPicker({ mode: "readwrite" });
+        const parent = await window.showDirectoryPicker({
+          id: "serifu-maker-output", // 2回目以降は前回選んだ場所から開く
+          mode: "readwrite",
+          startIn: "documents"       // ダウンロードフォルダはブラウザ側の制限で選べないため
+        });
         dir = await parent.getDirectoryHandle(folderName, { create: true });
       } catch (e) {
         if (e && e.name === "AbortError") {
