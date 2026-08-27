@@ -90,6 +90,11 @@ body {
   cursor: pointer;
 }
 
+/* display:inline-flex が hidden属性のdisplay:noneを打ち消すため、明示的に戻す */
+.btn[hidden] {
+  display: none;
+}
+
 .btn:hover {
   background: #fdf1f4;
 }
@@ -266,6 +271,20 @@ body {
   border-radius: 8px;
   padding: 8px;
   background: #fdfbfc;
+}
+
+.bulk-group + .bulk-group {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 2px dashed #e0d3d8;
+}
+
+.bulk-group__head {
+  margin: 0 0 4px;
+  padding-left: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a7c82;
 }
 
 .bulk-row {
@@ -544,6 +563,33 @@ body {
   background: #ffffff;
 }
 
+/* グループを並べる入れ物。ここ自体は書き出し対象ではない */
+.canvas-list {
+  width: fit-content;
+  min-width: 100%;
+}
+
+/* プレビュー：グループ（＝画像1枚ぶん）ごとの区切り */
+.canvas-group + .canvas-group {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 2px dashed #c9bcc2;
+}
+
+.canvas-group__label {
+  padding: 0 4px 4px;
+  font-size: 11px;
+  color: #8a7c82;
+}
+
+/* 行エディタ側のグループ区切り */
+.line-group-sep {
+  margin: 10px 0 2px;
+  font-size: 11px;
+  color: #8a7c82;
+  text-align: center;
+}
+
 .export-buttons {
   display: flex;
   gap: 8px;
@@ -558,22 +604,61 @@ body {
   color: #6d5f66;
 }
 
-.result-area {
+.output-box {
   margin-top: 12px;
   border-top: 1px dashed #e0d3d8;
   padding-top: 12px;
 }
 
-.result-area__title {
-  margin: 0 0 8px;
+.output-box__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.output-box__title {
+  margin: 0;
+  font-size: 14px;
+}
+
+.output-box__count {
+  font-weight: 400;
   font-size: 13px;
   color: #6d5f66;
 }
 
-.result-area__img {
+/* 出力エリア：contenteditable にして「全部選択 → Ctrl+C」でまとめてコピーできるようにする */
+.output-area {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid #d9c9cf;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+.output-area:focus {
+  outline: 2px solid #e8899f;
+  outline-offset: -2px;
+}
+
+.output-area__img {
   max-width: 100%;
   border: 1px solid #eadfe4;
   border-radius: 6px;
+}
+
+.output-box kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid #d9c9cf;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #fdfbfc;
+  font-size: 11px;
+  font-family: inherit;
 }
 
 /* ---------- 使い方 ---------- */
