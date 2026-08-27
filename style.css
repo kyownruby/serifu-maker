@@ -1,0 +1,563 @@
+/* ==========================================================
+   アイコン付きセリフメーカー
+   ---------------------------------------------------------
+   前半：ツールUI（編集パネル・プレビュー枠・使い方）
+   後半：書き出し対象（.canvas 以下）＝実際にPNGになる部分
+   ========================================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Noto Sans JP", sans-serif;
+  color: #3d3238;
+  background: #faf7f5;
+}
+
+/* ---------- スマホ向け案内 ---------- */
+
+.device-notice {
+  margin: 0;
+  padding: 8px 16px;
+  background: #fff4d6;
+  color: #7a6222;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ---------- ヘッダー ---------- */
+
+.site-header {
+  padding: 20px 24px 8px;
+}
+
+.site-header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.site-header__sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #8a7c82;
+}
+
+/* ---------- 全体レイアウト（2カラム） ---------- */
+
+.app {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+  align-items: start;
+  min-width: 1000px; /* PC＋タブレット横向き前提。狭い画面は横スクロール */
+  padding: 16px 24px 32px;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #e8dfe3;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.panel__title {
+  margin: 20px 0 10px;
+  font-size: 15px;
+  border-left: 4px solid #e8899f;
+  padding-left: 8px;
+}
+
+.panel__title:first-child {
+  margin-top: 0;
+}
+
+/* ---------- ボタン（タップ領域44px以上） ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 14px;
+  border: 1px solid #d9c9cf;
+  border-radius: 8px;
+  background: #fff;
+  color: #3d3238;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #fdf1f4;
+}
+
+.btn--wide {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.btn--primary {
+  background: #e8899f;
+  border-color: #e8899f;
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn--primary:hover {
+  background: #d2607c;
+}
+
+.btn--danger:hover {
+  background: #ffe3e3;
+}
+
+.btn--file {
+  position: relative;
+}
+
+/* ---------- セリフ行エディタ ---------- */
+
+.line-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.line-editor {
+  border: 1px solid #eadfe4;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fdfbfc;
+}
+
+.line-editor__row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.line-editor__preset {
+  flex: 1;
+  min-height: 36px;
+}
+
+.line-editor textarea {
+  width: 100%;
+  min-height: 60px;
+  resize: vertical;
+  border: 1px solid #d9c9cf;
+  border-radius: 8px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.line-editor__buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.line-editor__buttons .btn {
+  flex: 1;
+  padding: 4px 6px;
+}
+
+/* ---------- オプション ---------- */
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.option__label {
+  width: 90px;
+  flex-shrink: 0;
+  color: #6d5f66;
+}
+
+.option select {
+  min-height: 36px;
+  border: 1px solid #d9c9cf;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.option--check {
+  gap: 6px;
+}
+
+.option--check input {
+  width: 20px;
+  height: 20px;
+}
+
+.option--inline {
+  display: inline-flex;
+}
+
+/* ---------- プリセット管理 ---------- */
+
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-card {
+  border: 1px solid #eadfe4;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fdfbfc;
+}
+
+.preset-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.preset-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.preset-card__icon--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.preset-card__name {
+  flex: 1;
+  min-height: 36px;
+  border: 1px solid #d9c9cf;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+.preset-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.preset-card__color {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6d5f66;
+}
+
+.preset-card__color input[type="color"] {
+  width: 36px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #d9c9cf;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.preset-card__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preset-card__foot select {
+  min-height: 36px;
+  border: 1px solid #d9c9cf;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.preset-io {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.hint {
+  font-size: 12px;
+  color: #9a8b91;
+  line-height: 1.6;
+}
+
+.hint--inline {
+  display: inline;
+  font-weight: 400;
+}
+
+/* ---------- プレビュー ---------- */
+
+.preview-scroll {
+  /* 書き出し対象の「外側」に置くスクロールコンテナ（仕様§6） */
+  overflow: auto;
+  max-height: 70vh;
+  border: 1px solid #eadfe4;
+  border-radius: 10px;
+}
+
+.preview-wrapper {
+  width: fit-content;
+  min-width: 100%;
+}
+
+/* 透過が分かるように市松模様（書き出し対象の外側にだけ敷く） */
+.preview-wrapper--checker {
+  background-image:
+    linear-gradient(45deg, #e9e4e6 25%, transparent 25%, transparent 75%, #e9e4e6 75%),
+    linear-gradient(45deg, #e9e4e6 25%, transparent 25%, transparent 75%, #e9e4e6 75%);
+  background-color: #f7f4f5;
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
+}
+
+.preview-wrapper--white {
+  background: #ffffff;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.export-status {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #6d5f66;
+}
+
+.result-area {
+  margin-top: 12px;
+  border-top: 1px dashed #e0d3d8;
+  padding-top: 12px;
+}
+
+.result-area__title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #6d5f66;
+}
+
+.result-area__img {
+  max-width: 100%;
+  border: 1px solid #eadfe4;
+  border-radius: 6px;
+}
+
+/* ---------- 使い方 ---------- */
+
+.usage {
+  max-width: 760px;
+  margin: 0 auto 60px;
+  padding: 0 24px;
+  line-height: 1.8;
+  font-size: 14px;
+}
+
+.usage h2 {
+  font-size: 16px;
+  margin: 28px 0 8px;
+  border-left: 4px solid #e8899f;
+  padding-left: 8px;
+}
+
+/* ==========================================================
+   ここから書き出し対象（.canvas 以下）
+   - .canvas とその内側に background-color を付けない（透過のため）
+   - overflow: hidden や固定 height を付けない（仕様§6）
+   ========================================================== */
+
+.canvas {
+  /* width はJSで設定（620/700/800px）。height は auto */
+  padding: 16px;
+  line-height: 1.7;
+}
+
+/* 1行 */
+.line {
+  display: flex;
+  align-items: flex-start;
+}
+
+.line--left {
+  flex-direction: row;
+}
+
+.line--right {
+  flex-direction: row-reverse;
+}
+
+/* 行間：別キャラ 14px ／ 同キャラ連続 6px（JSでクラス付与） */
+.line + .line {
+  margin-top: 14px;
+}
+
+.line--cont {
+  margin-top: 6px !important;
+}
+
+/* アイコン＋名前の列 */
+.speaker {
+  width: 64px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.avatar,
+.avatar-fallback {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid var(--bubble-border);
+  display: block;
+  margin: 0 auto;
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bubble-border);
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.name {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--name-color);
+  overflow-wrap: anywhere;
+}
+
+/* 同一キャラ連続時：アイコンと名前を非表示（幅だけ残して吹き出し位置を揃える） */
+.line--cont .speaker {
+  visibility: hidden;
+  height: 0;
+}
+
+/* 吹き出し */
+.bubble {
+  position: relative;
+  max-width: calc(100% - 90px);
+  border-radius: 18px;
+  padding: 12px 16px;
+  background: var(--bubble-bg);
+  border: 2px solid var(--bubble-border);
+  color: var(--text-color);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.line--left .bubble {
+  margin-left: 10px;
+}
+
+.line--right .bubble {
+  margin-right: 10px;
+}
+
+/* しっぽ（外側=枠線色、内側=背景色の2枚重ね） */
+.line--left .bubble::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: -9px;
+  border-style: solid;
+  border-width: 7px 9px 7px 0;
+  border-color: transparent var(--bubble-border) transparent transparent;
+}
+
+.line--left .bubble::after {
+  content: "";
+  position: absolute;
+  top: 15px;
+  left: -6px;
+  border-style: solid;
+  border-width: 6px 7px 6px 0;
+  border-color: transparent var(--bubble-bg) transparent transparent;
+}
+
+.line--right .bubble::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  right: -9px;
+  border-style: solid;
+  border-width: 7px 0 7px 9px;
+  border-color: transparent transparent transparent var(--bubble-border);
+}
+
+.line--right .bubble::after {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: -6px;
+  border-style: solid;
+  border-width: 6px 0 6px 7px;
+  border-color: transparent transparent transparent var(--bubble-bg);
+}
+
+/* 同一キャラ連続時はしっぽも消す（アイコンが無いのにしっぽだけ浮くのを防ぐ） */
+.line--cont .bubble::before,
+.line--cont .bubble::after {
+  display: none;
+}
+
+/* フォント切り替え（.canvas に付与） */
+.canvas--font-rounded {
+  font-family: "M PLUS Rounded 1c", sans-serif;
+}
+
+.canvas--font-sans {
+  font-family: "Noto Sans JP", sans-serif;
+}
+
+.canvas--font-mincho {
+  font-family: "Shippori Mincho", serif;
+}
+
+.canvas--font-tegaki {
+  font-family: "Yomogi", cursive;
+}

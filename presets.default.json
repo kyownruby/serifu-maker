@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "preset1",
+      "name": "キャラ1",
+      "icon": "",
+      "bubbleBg": "#FFF0F3",
+      "bubbleBorder": "#E8899F",
+      "textColor": "#3D3238",
+      "nameColor": "#D2607C",
+      "defaultSide": "left"
+    },
+    {
+      "id": "preset2",
+      "name": "キャラ2",
+      "icon": "",
+      "bubbleBg": "#FFF9E0",
+      "bubbleBorder": "#F0CE5A",
+      "textColor": "#3D3A32",
+      "nameColor": "#D9A616",
+      "defaultSide": "left"
+    },
+    {
+      "id": "preset3",
+      "name": "キャラ3",
+      "icon": "",
+      "bubbleBg": "#F2EEFA",
+      "bubbleBorder": "#9B87C4",
+      "textColor": "#332F3D",
+      "nameColor": "#6F58A3",
+      "defaultSide": "left"
+    },
+    {
+      "id": "preset4",
+      "name": "キャラ4",
+      "icon": "",
+      "bubbleBg": "#EEF5F2",
+      "bubbleBorder": "#84AFA0",
+      "textColor": "#2F3A36",
+      "nameColor": "#4F8272",
+      "defaultSide": "right"
+    }
+  ]
+}
