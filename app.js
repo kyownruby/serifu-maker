@@ -15,19 +15,19 @@
 
   // presets.default.json と同内容のフォールバック（file:// 直開きなど fetch 不可時用）
   const FALLBACK_PRESETS = [
-    { id: "preset1", name: "キャラ1", aliases: [], icon: "", bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", textColor: "#3D3238", nameColor: "#D2607C", defaultSide: "left" },
-    { id: "preset2", name: "キャラ2", aliases: [], icon: "", bubbleBg: "#FFF9E0", bubbleBorder: "#F0CE5A", textColor: "#3D3A32", nameColor: "#D9A616", defaultSide: "left" },
-    { id: "preset3", name: "キャラ3", aliases: [], icon: "", bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", textColor: "#332F3D", nameColor: "#6F58A3", defaultSide: "left" },
-    { id: "preset4", name: "キャラ4", aliases: [], icon: "", bubbleBg: "#EEF5F2", bubbleBorder: "#84AFA0", textColor: "#2F3A36", nameColor: "#4F8272", defaultSide: "right" }
+    { id: "preset1", name: "キャラ1", icon: "", bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", textColor: "#3D3238", nameColor: "#D2607C", defaultSide: "left" },
+    { id: "preset2", name: "キャラ2", icon: "", bubbleBg: "#FFF9E0", bubbleBorder: "#F0CE5A", textColor: "#3D3A32", nameColor: "#D9A616", defaultSide: "left" },
+    { id: "preset3", name: "キャラ3", icon: "", bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", textColor: "#332F3D", nameColor: "#6F58A3", defaultSide: "left" },
+    { id: "preset4", name: "キャラ4", icon: "", bubbleBg: "#EEF5F2", bubbleBorder: "#84AFA0", textColor: "#2F3A36", nameColor: "#4F8272", defaultSide: "right" }
   ];
 
   // 同梱の素材アイコン（アップロードとは別の導線で選べる）
   // 色はキャラのイメージカラー：枠線と名前は濃いめ、吹き出し背景は薄め、文字色は黒固定
   const BUILTIN_ICONS = [
-    { id: "kyown",  name: "きょん",  aliases: ["kyown"],           file: "./assets/icon/thumb/kyown_icon.png",  bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", nameColor: "#D2607C", textColor: "#000000" },
-    { id: "mia",    name: "ミア",    aliases: ["みあ", "Mia"],      file: "./assets/icon/thumb/mia_icon.png",    bubbleBg: "#FFF9E0", bubbleBorder: "#E8BE3C", nameColor: "#C79408", textColor: "#000000" },
-    { id: "rain",   name: "レイン",  aliases: ["れいん", "Rain"],   file: "./assets/icon/thumb/rain_icon.png",   bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", nameColor: "#6F58A3", textColor: "#000000" },
-    { id: "shiori", name: "しおり",  aliases: ["シオリ", "Shiori"], file: "./assets/icon/thumb/shiori_icon.png", bubbleBg: "#EAF4FB", bubbleBorder: "#7BAFD4", nameColor: "#3D7EA6", textColor: "#000000" }
+    { id: "kyown",  name: "きょん",  file: "./assets/icon/thumb/kyown_icon.png",  bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", nameColor: "#D2607C", textColor: "#000000" },
+    { id: "mia",    name: "ミア",    file: "./assets/icon/thumb/mia_icon.png",    bubbleBg: "#FFF9E0", bubbleBorder: "#E8BE3C", nameColor: "#C79408", textColor: "#000000" },
+    { id: "rain",   name: "レイン",  file: "./assets/icon/thumb/rain_icon.png",   bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", nameColor: "#6F58A3", textColor: "#000000" },
+    { id: "shiori", name: "しおり",  file: "./assets/icon/thumb/shiori_icon.png", bubbleBg: "#EAF4FB", bubbleBorder: "#7BAFD4", nameColor: "#3D7EA6", textColor: "#000000" }
   ];
 
   const FONT_FAMILIES = {
@@ -61,16 +61,13 @@
   // 永続化
   // ==========================================================
 
-  // version 1 → 2：aliases（別名）を追加する。既存データは壊さない
-  // localStorageのキー名は :v1 のまま（キーを変えると既存データが読めなくなるため）
+  // 既存データの移行。localStorageのキー名は :v1 のまま
+  // （キーを変えると既存データが読めなくなるため、中の version で世代管理する）
+  // かつて別名（aliases）を持たせていたが廃止したので、残っていれば取り除く
   function migrate(data) {
     if (!data) return null;
-    if (data.version === 1 || data.version === undefined) {
-      data.presets = data.presets.map((p) => ({ ...p, aliases: p.aliases ?? [] }));
-      data.version = PRESETS_VERSION;
-    }
-    // version 2 以降でも aliases が欠けていれば補う（手で編集された場合の保険）
-    data.presets = data.presets.map((p) => (Array.isArray(p.aliases) ? p : { ...p, aliases: [] }));
+    data.presets = data.presets.map(({ aliases, ...rest }) => rest);
+    data.version = PRESETS_VERSION;
     return data;
   }
 
@@ -389,26 +386,6 @@
       head.appendChild(nameInput);
       card.appendChild(head);
 
-      // 別名（カンマ区切り）。台本の取り込みで表記ゆれを吸収するための任意項目
-      const aliasLabel = document.createElement("label");
-      aliasLabel.className = "preset-card__alias";
-      const aliasText = document.createElement("span");
-      aliasText.textContent = "別名";
-      const aliasInput = document.createElement("input");
-      aliasInput.type = "text";
-      aliasInput.className = "preset-card__aliasInput";
-      aliasInput.value = (preset.aliases || []).join(", ");
-      aliasInput.placeholder = "みあ, Mia（カンマ区切り・任意）";
-      aliasInput.addEventListener("input", () => {
-        preset.aliases = aliasInput.value
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
-        savePresets();
-      });
-      aliasLabel.appendChild(aliasText);
-      aliasLabel.appendChild(aliasInput);
-      card.appendChild(aliasLabel);
 
       // 中段：色4つ
       const grid = document.createElement("div");
@@ -572,7 +549,6 @@
     state.presets.push({
       id: newPresetId(),
       name: "新しいキャラ",
-      aliases: [],
       icon: "",
       bubbleBg: "#F5F5F5",
       bubbleBorder: "#BBAEB4",
@@ -592,7 +568,6 @@
     if (!res.ok) throw new Error(`素材アイコンの取得に失敗しました (${res.status})`);
     preset.icon = await resizeIcon(await res.blob());
     preset.name = builtin.name;
-    preset.aliases = [...(builtin.aliases || [])];
     preset.bubbleBg = builtin.bubbleBg;
     preset.bubbleBorder = builtin.bubbleBorder;
     preset.nameColor = builtin.nameColor;
@@ -651,15 +626,11 @@
     return t;
   }
 
-  // 名前でプリセットを探す。名前 → 別名 の順。前後の空白を除き大文字小文字は区別しない
+  // 名前でプリセットを探す。前後の空白を除き、大文字小文字は区別しない
   function findPresetByName(name) {
     const key = (name || "").trim().toLowerCase();
     if (!key) return null;
-    const exact = state.presets.find((p) => (p.name || "").trim().toLowerCase() === key);
-    if (exact) return exact;
-    return state.presets.find((p) =>
-      (p.aliases || []).some((a) => String(a).trim().toLowerCase() === key)
-    ) || null;
+    return state.presets.find((p) => (p.name || "").trim().toLowerCase() === key) || null;
   }
 
   // 台本テキストを解析して、取り込み候補の配列を返す。
