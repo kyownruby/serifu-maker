@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アイコン付きセリフメーカー</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- crossorigin必須：html-to-imageが書き出し時にフォントCSSを読み取るため -->
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Shippori+Mincho:wght@400;700&family=Yomogi&display=swap" rel="stylesheet" crossorigin="anonymous">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+  <p class="device-notice">📱 スマホでご覧の方へ：このツールはパソコンまたはタブレット（横向き）でのご利用をおすすめします</p>
+
+  <header class="site-header">
+    <h1>アイコン付きセリフメーカー</h1>
+    <p class="site-header__sub">note記事に貼れる「キャラのセリフ画像」を、ブラウザだけで作れるツールです（AI不使用・画像はどこにも送信されません）</p>
+  </header>
+
+  <main class="app">
+    <!-- ========== 左：編集パネル ========== -->
+    <section class="panel panel--editor" aria-label="編集パネル">
+
+      <h2 class="panel__title">セリフ</h2>
+      <div id="lineList" class="line-list"></div>
+      <button id="addLineBtn" class="btn btn--wide" type="button">＋ 行を追加</button>
+
+      <h2 class="panel__title">表示オプション</h2>
+      <div class="options">
+        <label class="option">
+          <span class="option__label">背景</span>
+          <select id="bgSelect">
+            <option value="transparent">透過</option>
+            <option value="white">白</option>
+          </select>
+        </label>
+        <label class="option">
+          <span class="option__label">フォント</span>
+          <select id="fontSelect">
+            <option value="rounded">まるっこい</option>
+            <option value="sans">すっきり</option>
+            <option value="mincho">明朝</option>
+            <option value="tegaki">手書き風</option>
+          </select>
+        </label>
+        <label class="option">
+          <span class="option__label">文字サイズ</span>
+          <select id="fontSizeSelect">
+            <option value="14">14px</option>
+            <option value="16" selected>16px</option>
+            <option value="18">18px</option>
+          </select>
+        </label>
+        <label class="option">
+          <span class="option__label">横幅</span>
+          <select id="widthSelect">
+            <option value="620" selected>620px</option>
+            <option value="700">700px</option>
+            <option value="800">800px</option>
+          </select>
+        </label>
+        <label class="option option--check">
+          <input type="checkbox" id="everyIconCheck">
+          <span>同じキャラが続いても毎行アイコンを出す</span>
+        </label>
+      </div>
+
+      <h2 class="panel__title">プリセット管理</h2>
+      <div id="presetList" class="preset-list"></div>
+      <button id="addPresetBtn" class="btn btn--wide" type="button">＋ プリセットを追加</button>
+
+      <div class="preset-io">
+        <button id="exportPresetBtn" class="btn" type="button">JSONエクスポート</button>
+        <label class="btn btn--file">
+          JSONインポート
+          <input type="file" id="importPresetInput" accept="application/json,.json" hidden>
+        </label>
+        <label class="option option--inline">
+          <span class="option__label">インポート方法</span>
+          <select id="importModeSelect">
+            <option value="merge">統合（同じIDは上書き）</option>
+            <option value="replace">置き換え（全部入れ替え）</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint">プリセットはこのブラウザの中（localStorage）にだけ保存されます。ブラウザのデータ削除で消えるので、JSONエクスポートでバックアップしてください。</p>
+    </section>
+
+    <!-- ========== 右：プレビュー ========== -->
+    <section class="panel panel--preview" aria-label="プレビュー">
+      <h2 class="panel__title">プレビュー <span class="hint hint--inline">（市松模様の部分が透過になります）</span></h2>
+      <div class="preview-scroll">
+        <div id="previewWrapper" class="preview-wrapper preview-wrapper--checker">
+          <!-- ここが書き出し対象。プレビュー＝出力そのもの -->
+          <div id="canvas" class="canvas"></div>
+        </div>
+      </div>
+
+      <div class="export-buttons">
+        <button id="savePngBtn" class="btn btn--primary" type="button">PNGで保存</button>
+        <button id="copyBtn" class="btn btn--primary" type="button">クリップボードにコピー</button>
+        <button id="saveEachBtn" class="btn" type="button">1行ずつ個別に保存</button>
+      </div>
+      <p id="exportStatus" class="export-status" role="status"></p>
+
+      <div id="resultArea" class="result-area" hidden>
+        <h3 class="result-area__title">書き出し結果（右クリック →「画像をコピー」でも取り出せます）</h3>
+        <img id="resultImg" class="result-area__img" alt="書き出したセリフ画像">
+      </div>
+    </section>
+  </main>
+
+  <!-- ========== 使い方 ========== -->
+  <section class="usage" aria-label="使い方">
+    <h2>このツールでできること</h2>
+    <p>note記事などに貼れる、キャラのアイコン付きセリフ画像（LINE風の吹き出し画像）を作れます。会話形式で複数行をまとめて1枚にすることもできます。</p>
+
+    <h2>使い方</h2>
+    <ol>
+      <li>「プリセット管理」でキャラの名前・アイコン・色を登録する</li>
+      <li>「セリフ」でキャラを選んでセリフを入力する（⇄ ボタンで左右も切り替えられます）</li>
+      <li>必要なら「＋ 行を追加」で行を増やして会話にする</li>
+      <li>「PNGで保存」または「クリップボードにコピー」で画像にして、noteに貼る</li>
+    </ol>
+
+    <h2>保存について（重要）</h2>
+    <ul>
+      <li>登録したプリセットは<strong>このブラウザの中だけ</strong>に保存されます</li>
+      <li>ブラウザのデータを削除すると消えます。<strong>「JSONエクスポート」でバックアップ</strong>してください</li>
+      <li>別のPCやブラウザには自動では引き継がれません（JSONエクスポート／インポートで移せます）</li>
+    </ul>
+
+    <h2>プライバシー</h2>
+    <ul>
+      <li>アップロードしたアイコン画像は<strong>どこにも送信されず、ブラウザの中だけで処理されます</strong></li>
+      <li>サーバーに保存されることはありません</li>
+    </ul>
+
+    <h2>注意</h2>
+    <ul>
+      <li>パソコンまたはタブレット（横向き）でのご利用を推奨します</li>
+      <li>透過PNGはnoteのダークモードでは文字が見えづらいことがあります。気になる場合は背景「白」もお試しください</li>
+    </ul>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
