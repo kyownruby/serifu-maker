@@ -72,21 +72,7 @@
       <div id="presetList" class="preset-list"></div>
       <button id="addPresetBtn" class="btn btn--wide" type="button">＋ プリセットを追加</button>
 
-      <div class="preset-io">
-        <button id="exportPresetBtn" class="btn" type="button">JSONエクスポート</button>
-        <label class="btn btn--file">
-          JSONインポート
-          <input type="file" id="importPresetInput" accept="application/json,.json" hidden>
-        </label>
-        <label class="option option--inline">
-          <span class="option__label">インポート方法</span>
-          <select id="importModeSelect">
-            <option value="merge">統合（同じIDは上書き）</option>
-            <option value="replace">置き換え（全部入れ替え）</option>
-          </select>
-        </label>
-      </div>
-      <p class="hint">プリセットはこのブラウザの中（localStorage）にだけ保存されます。ブラウザのデータ削除で消えるので、JSONエクスポートでバックアップしてください。</p>
+      <p class="hint">プリセットはこのブラウザの中（localStorage）にだけ保存されます。ブラウザのデータを削除すると消えます。</p>
     </section>
 
     <!-- ========== 右：プレビュー ========== -->
@@ -129,8 +115,8 @@
     <h2>保存について（重要）</h2>
     <ul>
       <li>登録したプリセットは<strong>このブラウザの中だけ</strong>に保存されます</li>
-      <li>ブラウザのデータを削除すると消えます。<strong>「JSONエクスポート」でバックアップ</strong>してください</li>
-      <li>別のPCやブラウザには自動では引き継がれません（JSONエクスポート／インポートで移せます）</li>
+      <li>ブラウザのデータを削除すると消えます（同梱のキャラは「素材から選ぶ」で戻せます）</li>
+      <li>別のPCやブラウザには引き継がれません</li>
     </ul>
 
     <h2>プライバシー</h2>

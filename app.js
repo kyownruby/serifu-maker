@@ -79,7 +79,7 @@
     try {
       localStorage.setItem(LS_PRESETS, JSON.stringify({ version: 1, presets: state.presets }));
     } catch (e) {
-      setStatus("⚠️ プリセットを保存できませんでした（容量オーバーの可能性）。JSONエクスポートでバックアップしてください");
+      setStatus("⚠️ プリセットを保存できませんでした（容量オーバーの可能性）。不要なプリセットを削除してみてください");
       console.error(e);
     }
   }
@@ -588,51 +588,6 @@
   }
 
   // ==========================================================
-  // プリセットの JSON エクスポート／インポート（仕様§7-3）
-  // ==========================================================
-
-  function exportPresets() {
-    const json = JSON.stringify({ version: 1, presets: state.presets }, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    downloadDataUrl(url, `serifu-presets_${timestamp()}.json`);
-    URL.revokeObjectURL(url);
-    setStatus("✅ プリセットをJSONでエクスポートしました");
-  }
-
-  function importPresets(file, mode) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        if (!data || !Array.isArray(data.presets)) {
-          throw new Error("presets 配列がありません");
-        }
-        const incoming = data.presets.filter((p) => p && typeof p.id === "string");
-        if (incoming.length === 0) throw new Error("有効なプリセットがありません");
-
-        if (mode === "replace") {
-          if (!confirm(`現在のプリセット ${state.presets.length} 件をすべて削除して、${incoming.length} 件に置き換えます。よろしいですか？`)) return;
-          state.presets = incoming;
-        } else {
-          for (const p of incoming) {
-            const i = state.presets.findIndex((x) => x.id === p.id);
-            if (i >= 0) state.presets[i] = p;
-            else state.presets.push(p);
-          }
-        }
-        savePresets();
-        update();
-        setStatus(`✅ プリセットをインポートしました（${mode === "replace" ? "置き換え" : "統合"}：${incoming.length} 件）`);
-      } catch (e) {
-        setStatus("⚠️ インポートに失敗しました。エクスポートしたJSONファイルか確認してください");
-        console.error(e);
-      }
-    };
-    reader.readAsText(file);
-  }
-
-  // ==========================================================
   // 画像の書き出し（仕様§7）
   // ==========================================================
 
@@ -840,12 +795,6 @@
     $("#savePngBtn").addEventListener("click", onSavePng);
     $("#copyBtn").addEventListener("click", onCopy);
     $("#saveEachBtn").addEventListener("click", onSaveEach);
-    $("#exportPresetBtn").addEventListener("click", exportPresets);
-    $("#importPresetInput").addEventListener("change", (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (file) importPresets(file, $("#importModeSelect").value);
-      e.target.value = "";
-    });
 
     update();
     waitFonts().then(() => renderCanvas());
