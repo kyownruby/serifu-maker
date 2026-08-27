@@ -598,9 +598,20 @@
     return await htmlToImage.toBlob(node, opts);
   }
 
-  function showResult(dataUrl) {
+  // 結果画像は blob: URL で表示する。
+  // data: URL だと、右クリック→「画像をコピー」でnoteなどのエディタに貼れないため
+  let lastResultUrl = null;
+
+  function showResult(blob) {
+    if (lastResultUrl) URL.revokeObjectURL(lastResultUrl);
+    lastResultUrl = URL.createObjectURL(blob);
     $("#resultArea").hidden = false;
-    $("#resultImg").src = dataUrl;
+    $("#resultImg").src = lastResultUrl;
+  }
+
+  async function showResultFromDataUrl(dataUrl) {
+    const res = await fetch(dataUrl);
+    showResult(await res.blob());
   }
 
   async function onSavePng() {
@@ -608,7 +619,7 @@
       setStatus("書き出し中…");
       const dataUrl = await exportPng(canvasEl);
       downloadDataUrl(dataUrl, `serifu_${timestamp()}.png`);
-      showResult(dataUrl);
+      await showResultFromDataUrl(dataUrl);
       setStatus("✅ PNGを保存しました");
     } catch (e) {
       setStatus("⚠️ 書き出しに失敗しました。ページを再読み込みして試してください");
@@ -622,20 +633,18 @@
       const blob = await exportBlob(canvasEl);
       if (!blob) throw new Error("blob生成に失敗");
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      const reader = new FileReader();
-      reader.onload = () => showResult(reader.result);
-      reader.readAsDataURL(blob);
+      showResult(blob);
       setStatus("✅ クリップボードにコピーしました");
     } catch (e) {
       console.error(e);
       // Safari など非同期を挟むと失敗するブラウザ向けフォールバック（仕様§7-2）
       try {
         const dataUrl = await exportPng(canvasEl);
-        showResult(dataUrl);
+        await showResultFromDataUrl(dataUrl);
       } catch (e2) {
         console.error(e2);
       }
-      setStatus("⚠️ コピーできませんでした。「PNGで保存」か、下の画像を右クリック→「画像をコピー」を使ってください");
+      setStatus("⚠️ コピーできませんでした。「PNGで保存」でファイルに保存してから、noteの画像追加で選んでください");
     }
   }
 
