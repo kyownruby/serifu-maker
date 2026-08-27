@@ -20,6 +20,15 @@
     { id: "preset4", name: "キャラ4", icon: "", bubbleBg: "#EEF5F2", bubbleBorder: "#84AFA0", textColor: "#2F3A36", nameColor: "#4F8272", defaultSide: "right" }
   ];
 
+  // 同梱の素材アイコン（アップロードとは別の導線で選べる）
+  // 色はキャラのイメージカラー：枠線と名前は濃いめ、吹き出し背景は薄め、文字色は黒固定
+  const BUILTIN_ICONS = [
+    { id: "kyown",  name: "きょん",  file: "./assets/icon/thumb/kyown_icon.png",  bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", nameColor: "#D2607C", textColor: "#000000" },
+    { id: "mia",    name: "ミア",    file: "./assets/icon/thumb/mia_icon.png",    bubbleBg: "#FFF9E0", bubbleBorder: "#E8BE3C", nameColor: "#C79408", textColor: "#000000" },
+    { id: "rain",   name: "レイン",  file: "./assets/icon/thumb/rain_icon.png",   bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", nameColor: "#6F58A3", textColor: "#000000" },
+    { id: "shiori", name: "しおり",  file: "./assets/icon/thumb/shiori_icon.png", bubbleBg: "#EAF4FB", bubbleBorder: "#7BAFD4", nameColor: "#3D7EA6", textColor: "#000000" }
+  ];
+
   const FONT_FAMILIES = {
     rounded: '"M PLUS Rounded 1c"',
     sans: '"Noto Sans JP"',
@@ -411,6 +420,19 @@
       fileLabel.appendChild(fileInput);
       foot.appendChild(fileLabel);
 
+      // 素材アイコンから選ぶ（アップロードとは別導線）。押すとカード内にサムネ一覧が開く
+      const builtinBtn = document.createElement("button");
+      builtinBtn.type = "button";
+      builtinBtn.className = "btn";
+      builtinBtn.textContent = "素材から選ぶ";
+      builtinBtn.setAttribute("aria-expanded", "false");
+      builtinBtn.addEventListener("click", () => {
+        const open = picker.hidden;
+        picker.hidden = !open;
+        builtinBtn.setAttribute("aria-expanded", String(open));
+      });
+      foot.appendChild(builtinBtn);
+
       if (preset.icon) {
         const clearBtn = document.createElement("button");
         clearBtn.type = "button";
@@ -461,6 +483,43 @@
       foot.appendChild(delBtn);
 
       card.appendChild(foot);
+
+      const picker = document.createElement("div");
+      picker.className = "icon-picker";
+      picker.hidden = true;
+      for (const builtin of BUILTIN_ICONS) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "icon-picker__item";
+        item.title = `${builtin.name}のアイコンと色を設定`;
+
+        const thumb = document.createElement("img");
+        thumb.className = "icon-picker__thumb";
+        thumb.src = builtin.file;
+        thumb.alt = "";
+        thumb.loading = "lazy";
+
+        const label = document.createElement("span");
+        label.className = "icon-picker__name";
+        label.textContent = builtin.name;
+
+        item.appendChild(thumb);
+        item.appendChild(label);
+        item.addEventListener("click", async () => {
+          try {
+            await applyBuiltinIcon(preset, builtin);
+            savePresets();
+            update();
+            setStatus(`✅ 「${builtin.name}」のアイコン・名前・色を設定しました`);
+          } catch (e) {
+            setStatus("⚠️ 素材アイコンの読み込みに失敗しました");
+            console.error(e);
+          }
+        });
+        picker.appendChild(item);
+      }
+      card.appendChild(picker);
+
       presetListEl.appendChild(card);
     });
   }
@@ -480,7 +539,22 @@
     update();
   }
 
+  // 素材アイコンを選んだときの適用処理
+  // 画像は dataURL 化してプリセットに保存する（データ構造は§4-1のまま。
+  // 書き出し時に外部ファイルを取りに行かないので html-to-image が安定する）
+  async function applyBuiltinIcon(preset, builtin) {
+    const res = await fetch(builtin.file, { cache: "no-cache" });
+    if (!res.ok) throw new Error(`素材アイコンの取得に失敗しました (${res.status})`);
+    preset.icon = await resizeIcon(await res.blob());
+    preset.name = builtin.name;
+    preset.bubbleBg = builtin.bubbleBg;
+    preset.bubbleBorder = builtin.bubbleBorder;
+    preset.nameColor = builtin.nameColor;
+    preset.textColor = builtin.textColor;
+  }
+
   // アイコンを 128×128 に中央クロップでリサイズして dataURL 化（仕様§9）
+  // File でも Blob でも受け取れる
   function resizeIcon(file) {
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file);

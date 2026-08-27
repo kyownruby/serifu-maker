@@ -299,6 +299,55 @@ body {
   font-size: 13px;
 }
 
+/* 素材アイコンの選択（プリセットカード内で開閉） */
+.icon-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e0d3d8;
+}
+
+/* display:flex が hidden属性のdisplay:noneを打ち消すため、明示的に戻す */
+.icon-picker[hidden] {
+  display: none;
+}
+
+.icon-picker__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 60px;
+  min-height: 44px;
+  padding: 6px;
+  border: 1px solid #d9c9cf;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.icon-picker__item:hover {
+  background: #fdf1f4;
+  border-color: #e8899f;
+}
+
+.icon-picker__thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.icon-picker__name {
+  font-size: 11px;
+  color: #6d5f66;
+  line-height: 1.2;
+}
+
 .preset-io {
   display: flex;
   flex-wrap: wrap;
