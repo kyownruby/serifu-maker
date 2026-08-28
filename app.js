@@ -12,6 +12,7 @@
   const LS_PRESETS = "serifu-maker:presets:v1"; // キー名は据え置き。中の version で世代管理する
   const PRESETS_VERSION = 2;
   const LS_DRAFT = "serifu-maker:draft:v1";
+  const LS_THEME = "serifu-maker:theme:v1";
 
   // presets.default.json と同内容のフォールバック（file:// 直開きなど fetch 不可時用）
   const FALLBACK_PRESETS = [
@@ -1120,6 +1121,53 @@
   }
 
   // ==========================================================
+  // 外観テーマ（自動 → ライト → ダーク）
+  // ツールUIの見た目だけを変える。書き出す画像には影響しない
+  // ==========================================================
+
+  const THEMES = [
+    { value: "auto",  label: "🖥️ 自動" },
+    { value: "light", label: "☀️ ライト" },
+    { value: "dark",  label: "🌙 ダーク" }
+  ];
+
+  function loadTheme() {
+    try {
+      const saved = localStorage.getItem(LS_THEME);
+      if (saved === "light" || saved === "dark") return saved;
+    } catch (e) {
+      console.warn("テーマの読み込みに失敗:", e);
+    }
+    return "auto";
+  }
+
+  function applyTheme(theme) {
+    // auto は data-theme を外して、CSSの prefers-color-scheme に任せる
+    if (theme === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", theme);
+
+    const found = THEMES.find((t) => t.value === theme) || THEMES[0];
+    $("#themeBtnLabel").textContent = found.label;
+
+    try {
+      if (theme === "auto") localStorage.removeItem(LS_THEME);
+      else localStorage.setItem(LS_THEME, theme);
+    } catch (e) {
+      console.warn("テーマの保存に失敗:", e);
+    }
+  }
+
+  function bindTheme() {
+    let theme = loadTheme();
+    applyTheme(theme);
+    $("#themeBtn").addEventListener("click", () => {
+      const next = (THEMES.findIndex((t) => t.value === theme) + 1) % THEMES.length;
+      theme = THEMES[next].value;
+      applyTheme(theme);
+    });
+  }
+
+  // ==========================================================
   // オプションUI
   // ==========================================================
 
@@ -1192,6 +1240,7 @@
     $("#addLineBtn").addEventListener("click", addLine);
     $("#bulkPasteBtn").addEventListener("click", openBulkModal);
     $("#clearLinesBtn").addEventListener("click", clearLines);
+    bindTheme();
     $("#bulkInput").addEventListener("input", refreshBulkPreview);
     $("#bulkApply").addEventListener("click", applyBulk);
     for (const el of document.querySelectorAll("#bulkModal [data-close]")) {
