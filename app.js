@@ -44,8 +44,7 @@
       background: "transparent", // "transparent" | "white"
       font: "rounded",           // rounded | sans | mincho | tegaki
       fontSize: 16,              // 14 | 16 | 18
-      width: 620,                // 620 | 700 | 800
-      everyIcon: false           // 同一キャラ連続時も毎行アイコンを出す
+      width: 620                 // 620 | 700 | 800
     }
   };
 
@@ -102,7 +101,12 @@
         const data = JSON.parse(raw);
         if (data && Array.isArray(data.lines)) {
           state.lines = data.lines;
-          if (data.options) Object.assign(state.options, data.options);
+          if (data.options) {
+            // 既知のオプションだけ引き継ぐ（廃止したキーを拾わないため）
+            for (const key of Object.keys(state.options)) {
+              if (key in data.options) state.options[key] = data.options[key];
+            }
+          }
           return true;
         }
       }
@@ -234,7 +238,7 @@
     let prevKey = null;
     for (const line of lines) {
       const key = line.presetId + "/" + line.side;
-      const continued = !state.options.everyIcon && key === prevKey;
+      const continued = key === prevKey;
       el.appendChild(buildLineElement(line, { continued }));
       prevKey = key;
     }
@@ -373,6 +377,13 @@
 
       lineListEl.appendChild(box);
     });
+  }
+
+  function clearLines() {
+    if (state.lines.length === 0) return;
+    if (!confirm(`セリフ ${state.lines.length} 行をすべて削除しますか？`)) return;
+    state.lines = [];
+    update();
   }
 
   function addLine() {
@@ -1117,13 +1128,11 @@
     const fontSelect = $("#fontSelect");
     const fontSizeSelect = $("#fontSizeSelect");
     const widthSelect = $("#widthSelect");
-    const everyIconCheck = $("#everyIconCheck");
 
     bgSelect.value = state.options.background;
     fontSelect.value = state.options.font;
     fontSizeSelect.value = String(state.options.fontSize);
     widthSelect.value = String(state.options.width);
-    everyIconCheck.checked = state.options.everyIcon;
 
     bgSelect.addEventListener("change", () => {
       state.options.background = bgSelect.value;
@@ -1144,11 +1153,6 @@
     });
     widthSelect.addEventListener("change", () => {
       state.options.width = Number(widthSelect.value);
-      renderCanvas();
-      saveDraft();
-    });
-    everyIconCheck.addEventListener("change", () => {
-      state.options.everyIcon = everyIconCheck.checked;
       renderCanvas();
       saveDraft();
     });
@@ -1187,6 +1191,7 @@
     bindOptions();
     $("#addLineBtn").addEventListener("click", addLine);
     $("#bulkPasteBtn").addEventListener("click", openBulkModal);
+    $("#clearLinesBtn").addEventListener("click", clearLines);
     $("#bulkInput").addEventListener("input", refreshBulkPreview);
     $("#bulkApply").addEventListener("click", applyBulk);
     for (const el of document.querySelectorAll("#bulkModal [data-close]")) {
