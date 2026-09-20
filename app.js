@@ -674,6 +674,11 @@
   // 「キャラ名：セリフ」と誤検知しないための条件。
   const LINE_RE = /^\s*(?:\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\s*)*([^:：「」]{1,24}?)\s*[:：]\s*(「.+)$/u;
 
+  // 行頭のMarkdown引用記号を取り除く（「> 」「＞」、ネストした「> > 」も）
+  function stripQuoteMark(raw) {
+    return raw.replace(/^\s*(?:[>＞]\s*)+/, "");
+  }
+
   // 外側が「」で囲まれていれば1組だけ外す（中の「」は残す）
   function stripBrackets(text) {
     const t = text.trim();
@@ -724,12 +729,14 @@
     };
 
     for (const raw of String(text).split(/\r?\n/)) {
-      if (raw.trim() === "") {
+      // 引用記号を先に外す。記号だけの行は空行と同じ扱いになる
+      const row = stripQuoteMark(raw);
+      if (row.trim() === "") {
         // 空行：セリフの途中なら改行として残し、そうでなければ読み飛ばす
         if (pending) pending.text += "\n";
         continue;
       }
-      const m = raw.match(LINE_RE);
+      const m = row.match(LINE_RE);
       if (m) {
         // 新しい合いの手。前のセリフが途中でも、ここで確定させる
         closePending();
@@ -738,7 +745,7 @@
         else current.push(line);
       } else if (pending) {
         // 「」が閉じていない間はセリフの続き
-        pending.text += "\n" + raw.trim();
+        pending.text += "\n" + row.trim();
         if (!isOpen(pending.text)) closePending();
       } else {
         // 地の文。捨てたうえで、ここでグループを区切る
