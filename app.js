@@ -10,7 +10,7 @@
   "use strict";
 
   const LS_PRESETS = "serifu-maker:presets:v1"; // キー名は据え置き。中の version で世代管理する
-  const PRESETS_VERSION = 2;
+  const PRESETS_VERSION = 3;
   const LS_DRAFT = "serifu-maker:draft:v1";
   const LS_THEME = "serifu-maker:theme:v1";
 
@@ -24,11 +24,13 @@
 
   // 同梱の素材アイコン（アップロードとは別の導線で選べる）
   // 色はキャラのイメージカラー：枠線と名前は濃いめ、吹き出し背景は薄め、文字色は黒固定
+  // 初期位置は きょん だけ右、ほかは左
   const BUILTIN_ICONS = [
-    { id: "kyown",  name: "きょん",  file: "./assets/icon/thumb/kyown_icon.png",  bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", nameColor: "#D2607C", textColor: "#000000" },
-    { id: "mia",    name: "ミア",    file: "./assets/icon/thumb/mia_icon.png",    bubbleBg: "#FFF9E0", bubbleBorder: "#E8BE3C", nameColor: "#C79408", textColor: "#000000" },
-    { id: "rain",   name: "レイン",  file: "./assets/icon/thumb/rain_icon.png",   bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", nameColor: "#6F58A3", textColor: "#000000" },
-    { id: "shiori", name: "しおり",  file: "./assets/icon/thumb/shiori_icon.png", bubbleBg: "#EAF4FB", bubbleBorder: "#7BAFD4", nameColor: "#3D7EA6", textColor: "#000000" }
+    { id: "kyown",  name: "きょん",     file: "./assets/icon/thumb/kyown_icon.png",  bubbleBg: "#FFF0F3", bubbleBorder: "#E8899F", nameColor: "#D2607C", textColor: "#000000", defaultSide: "right" },
+    { id: "mia",    name: "ミア",       file: "./assets/icon/thumb/mia_icon.png",    bubbleBg: "#FFF9E0", bubbleBorder: "#E8BE3C", nameColor: "#C79408", textColor: "#000000", defaultSide: "left" },
+    { id: "rain",   name: "レイン",     file: "./assets/icon/thumb/rain_icon.png",   bubbleBg: "#F2EEFA", bubbleBorder: "#9B87C4", nameColor: "#6F58A3", textColor: "#000000", defaultSide: "left" },
+    { id: "shiori", name: "しおり",     file: "./assets/icon/thumb/shiori_icon.png", bubbleBg: "#EAF4FB", bubbleBorder: "#7BAFD4", nameColor: "#3D7EA6", textColor: "#000000", defaultSide: "left" },
+    { id: "note",   name: "noteちゃん", file: "./assets/icon/thumb/note_icon.png",   bubbleBg: "#F8F5EE", bubbleBorder: "#7892C2", nameColor: "#5E7CB0", textColor: "#000000", defaultSide: "left" }
   ];
 
   const FONT_FAMILIES = {
@@ -66,7 +68,16 @@
   // かつて別名（aliases）を持たせていたが廃止したので、残っていれば取り除く
   function migrate(data) {
     if (!data) return null;
+    const from = Number(data.version) || 1;
     data.presets = data.presets.map(({ aliases, ...rest }) => rest);
+    // v3：素材キャラに初期位置を持たせた。保存済みのプリセットも、
+    // 名前が素材キャラと同じものは一度だけ初期位置を合わせる
+    if (from < 3) {
+      for (const preset of data.presets) {
+        const builtin = BUILTIN_ICONS.find((b) => b.name === (preset.name || "").trim());
+        if (builtin) preset.defaultSide = builtin.defaultSide;
+      }
+    }
     data.version = PRESETS_VERSION;
     return data;
   }
@@ -151,6 +162,15 @@
 
   function newPresetId() {
     return "p" + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36);
+  }
+
+  // カラーコードを「#RRGGBB」にそろえる。# なし・3桁（#abc）も受け付ける。不正なら null
+  function normalizeHex(value) {
+    const m = String(value).trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (!m) return null;
+    let digits = m[1];
+    if (digits.length === 3) digits = digits.split("").map((c) => c + c).join("");
+    return "#" + digits.toUpperCase();
   }
 
   function setStatus(msg) {
@@ -452,20 +472,61 @@
         ["textColor", "文字色"]
       ];
       for (const [key, label] of colorFields) {
-        const wrap = document.createElement("label");
+        // 左にカラーピッカー、右に「名前」と「カラーコード入力欄」を縦に並べる
+        const wrap = document.createElement("div");
         wrap.className = "preset-card__color";
+        const pickerId = `${preset.id}-${key}`;
+
         const input = document.createElement("input");
         input.type = "color";
+        input.id = pickerId;
         input.value = preset[key];
+
+        const labelEl = document.createElement("label");
+        labelEl.className = "preset-card__colorName";
+        labelEl.htmlFor = pickerId;
+        labelEl.textContent = label;
+
+        const hex = document.createElement("input");
+        hex.type = "text";
+        hex.className = "preset-card__hex";
+        hex.value = String(preset[key]).toUpperCase();
+        hex.maxLength = 7;
+        hex.spellcheck = false;
+        hex.autocomplete = "off";
+        hex.placeholder = "#RRGGBB";
+        hex.setAttribute("aria-label", `${label}（カラーコード）`);
+
+        // ピッカーで選んだ色 → カラーコード欄にも反映
         input.addEventListener("input", () => {
           preset[key] = input.value;
+          hex.value = input.value.toUpperCase();
+          hex.removeAttribute("aria-invalid");
           savePresets();
           renderCanvas();
         });
-        const span = document.createElement("span");
-        span.textContent = label;
+        // カラーコード欄に打った色 → 正しい形になった時点でピッカーとプレビューに反映
+        hex.addEventListener("input", () => {
+          const color = normalizeHex(hex.value);
+          if (!color) {
+            hex.setAttribute("aria-invalid", "true");
+            return;
+          }
+          hex.removeAttribute("aria-invalid");
+          preset[key] = color;
+          input.value = color;
+          savePresets();
+          renderCanvas();
+        });
+        // 入力を終えたら表示を「#RRGGBB」にそろえる。不正なままなら元の色に戻す
+        hex.addEventListener("change", () => {
+          hex.value = String(preset[key]).toUpperCase();
+          hex.removeAttribute("aria-invalid");
+        });
+
         wrap.appendChild(input);
-        wrap.appendChild(span);
+        wrap.appendChild(labelEl);
+        wrap.appendChild(hex);
         grid.appendChild(wrap);
       }
       card.appendChild(grid);
@@ -586,7 +647,7 @@
             await applyBuiltinIcon(preset, builtin);
             savePresets();
             update();
-            setStatus(`✅ 「${builtin.name}」のアイコン・名前・色を設定しました`);
+            setStatus(`✅ 「${builtin.name}」のアイコン・名前・色・初期位置を設定しました`);
           } catch (e) {
             setStatus("⚠️ 素材アイコンの読み込みに失敗しました");
             console.error(e);
@@ -627,6 +688,7 @@
     preset.bubbleBorder = builtin.bubbleBorder;
     preset.nameColor = builtin.nameColor;
     preset.textColor = builtin.textColor;
+    preset.defaultSide = builtin.defaultSide;
   }
 
   // アイコンを 128×128 に中央クロップでリサイズして dataURL 化（仕様§9）
