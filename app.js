@@ -974,13 +974,14 @@
   // 画像の書き出し（仕様§7）
   // ==========================================================
 
-  async function waitFonts() {
+  // text を渡すと、その文字を含むフォント（日本語は文字ごとに分割配信されている）も読み込む
+  async function waitFonts(text) {
     try {
       await document.fonts.ready; // フォント読み込み待ち（必須）
       const fam = FONT_FAMILIES[state.options.font];
       await Promise.all([
-        document.fonts.load(`400 16px ${fam}`),
-        document.fonts.load(`700 16px ${fam}`)
+        document.fonts.load(`400 16px ${fam}`, text),
+        document.fonts.load(`700 16px ${fam}`, text)
       ]);
     } catch (e) {
       console.warn("フォント読み込み待ちに失敗:", e);
@@ -1025,6 +1026,48 @@
     if (box) box.hidden = true;
   }
 
+  // 画面上で実際に折り返している位置に改行を入れ、出力側で折り返し直さないよう固定する。
+  // html-to-image は要素を複製するとき font-size を「切り捨て−0.1px」にする（16px → 15.9px）。
+  // そのままだと出力側では文字がわずかに小さくなり、ギリギリ入らなかった文字が前の行に収まって
+  // 折り返し位置がずれる。一方で吹き出しの高さはプレビューの値で固定されるため、
+  // 「3行分の吹き出しに2行の文字」のような出力になっていた
+  function freezeLineBreaks(el) {
+    const node = el.firstChild;
+    if (!node || node.nodeType !== Node.TEXT_NODE || el.childNodes.length !== 1) return;
+    const text = node.data;
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 0;
+    const width = el.getBoundingClientRect().width;
+    const range = document.createRange();
+    let out = "";
+    let lineTop = null;
+    for (let i = 0; i < text.length; ) {
+      const len = text.codePointAt(i) > 0xffff ? 2 : 1;
+      const ch = text.slice(i, i + len);
+      if (ch === "\n") {
+        lineTop = null; // もともとの改行。次の文字から新しい行
+      } else {
+        range.setStart(node, i);
+        range.setEnd(node, i + len);
+        const rect = range.getClientRects()[0];
+        if (rect && rect.width > 0) {
+          if (lineTop === null) {
+            lineTop = rect.top;
+          } else if (rect.top > lineTop + lineHeight / 2) {
+            // 自動で折り返していた位置。行末の空白は折り返しで見えなくなっていたので落とす
+            out = out.replace(/[ \t]+$/, "") + "\n";
+            lineTop = rect.top;
+          }
+        }
+      }
+      out += ch;
+      i += len;
+    }
+    // 幅も今の値で固定する（折り返さない設定にすると、幅が文字ぶんだけに縮んでしまうため）
+    el.style.width = `${width}px`;
+    el.style.whiteSpace = "pre";
+    node.data = out;
+  }
+
   // 1グループぶんを画面外でレンダリングして画像にする
   async function renderGroupToBlob(lines) {
     const holder = document.createElement("div");
@@ -1035,7 +1078,9 @@
     holder.appendChild(shot);
     document.body.appendChild(holder);
     try {
-      await waitFonts();
+      await waitFonts(shot.textContent);
+      // プレビューと同じ位置で折り返すよう固定してから画像にする
+      shot.querySelectorAll(".bubble, .name").forEach(freezeLineBreaks);
       const opts = exportOptions();
       await htmlToImage.toBlob(shot, opts); // 1回目は捨てる（初回描画崩れ対策）
       return await htmlToImage.toBlob(shot, opts);
